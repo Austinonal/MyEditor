@@ -1,0 +1,40 @@
+feature,area,priority,original,clone,notes
+Import photos and videos from device,import,must,yes,no,
+Pick reference clip for Auto Cut,auto cut,must,yes,no,
+Detect shot boundaries in reference,auto cut,must,yes,no,core of the skeleton
+Detect music beats and loudness,auto cut,must,yes,no,CapCut auto cut uses beat
+Detect speech pauses,auto cut,should,yes,no,CapCut auto cut option
+Detect transitions and zoom/shake effects,auto cut,should,yes,no,fixed vocabulary; not 100% match
+Detect on-screen text (OCR),auto cut,should,yes,no,Thai+English TBD
+Speech to text captions,auto cut,should,yes,no,local model; language TBD
+Extract reference audio/beat map for use as soundtrack,auto cut,should,yes,no,copyright note for user
+Generate skeleton timeline from analysis,auto cut,must,yes,no,
+Empty placeholder slots when media is fewer than scenes,auto cut,must,yes,no,user example 1 media vs 6-7 slots
+Auto-fill user media into slots,auto cut,must,yes,no,
+Fill/replace media in any slot,auto cut,must,yes,no,
+Drag to resize slot length (never locked),timeline,must,yes,no,user requirement
+Reorder split merge delete slots,timeline,must,yes,no,
+Snap to beat and cuts (toggle),timeline,should,yes,no,
+Ripple on/off when resizing,timeline,should,yes,no,
+Trim in/out point of media in slot,timeline,must,yes,no,
+Analysis progress with stages and cancel,auto cut,must,yes,no,
+Autosave drafts and resume,projects,must,yes,no,
+Project list,projects,must,yes,no,
+Preview playback with scrub,editor,must,yes,no,
+Export MP4 with resolution and fps choice,export,must,yes,no,
+Warn on empty slots at export,export,should,no,no,our addition
+Multi-track timeline,manual edit,must,yes,no,phase 2
+Split trim delete clips,manual edit,must,yes,no,phase 2
+Speed change,manual edit,should,yes,no,phase 2
+Text overlays and stickers,manual edit,should,yes,no,phase 2
+Filters and color adjust,manual edit,should,yes,no,phase 2
+Transitions between clips,manual edit,should,yes,no,phase 2
+Keyframe animation with easing,manual edit,should,yes,no,Alight Motion / KineMaster
+Blend modes and layers,manual edit,could,yes,no,Alight Motion
+Chroma key,manual edit,could,yes,no,KineMaster
+Audio volume fade and voiceover,manual edit,should,yes,no,phase 2
+Export GIF / PNG sequence,export,could,yes,no,Alight Motion
+Template marketplace and trending feed,network,skip,yes,no,not clonable: network and licensed content
+Licensed music/sticker/font/effect library,content,skip,yes,no,use own or open-licensed assets
+Cloud AI generative features,ai,skip,yes,no,out of scope: on-device only
+Accounts cloud sync subscriptions,platform,skip,yes,no,not needed for personal use
