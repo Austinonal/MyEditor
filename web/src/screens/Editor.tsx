@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { Icon } from '../ui/icons'
 import { MediaSheet } from '../ui/MediaSheet'
+import { FxDock } from '../ui/FxDock'
 import { Notice, Sheet, Top, fmt } from '../ui/kit'
 import { getBlob, getMedia, getProject, listMedia, putProject } from '../lib/store'
-import { Player } from '../lib/player'
+import { Player, type Soundtrack } from '../lib/player'
+import { decodeAudio } from '../lib/beats'
 import { exportProject, exportMime } from '../lib/exporter'
-import { moveBoundary, remove, slotAt, snapTime, split, starts, total, MIN_SLOT_MS } from '../lib/timeline'
+import { alignToBeats, moveBoundary, remove, slotAt, snapTime, split, starts, total, MIN_SLOT_MS } from '../lib/timeline'
 import { ASPECT_SIZE, uid, type Aspect, type Media, type Project, type Slot } from '../lib/types'
 
 const SNAP_PX = 10
@@ -17,7 +19,9 @@ export function Editor({ id }: { id: string }) {
   const [sel, setSel] = useState<number | null>(null)
   const [t, setT] = useState(0)
   const [playing, setPlaying] = useState(false)
-  const [snap, setSnap] = useState(true)
+  const [snapBeat, setSnapBeat] = useState(true)
+  const [snapCut, setSnapCut] = useState(true)
+  const [buf, setBuf] = useState<AudioBuffer | null>(null)
   const [ripple, setRipple] = useState(true)
   const [ppm, setPpm] = useState(0.08) // px per ms
   const [pick, setPick] = useState(false)
@@ -52,6 +56,11 @@ export function Editor({ id }: { id: string }) {
   }, [mediaKey, p?.aspect, !!p])
   useEffect(() => { player.current?.seek(player.current.t) }, [p?.slots])
 
+  // soundtrack = the reference clip's audio
+  useEffect(() => { if (p?.referenceId && p.audio?.on !== undefined && !buf) getBlob(p.referenceId).then((b) => b && decodeAudio(b)).then((a) => a && setBuf(a)) }, [p?.referenceId])
+  const soundtrack: Soundtrack | null = buf && p?.audio ? { buffer: buf, on: p.audio.on, volume: p.audio.volume } : null
+  useEffect(() => { if (player.current) player.current.soundtrack = soundtrack }, [buf, p?.audio?.on, p?.audio?.volume, !!p])
+
   // autosave (debounced) and flush on leave
   const dirty = useRef<Project>()
   useEffect(() => { if (!p || p === dirty.current) return; const h = setTimeout(() => putProject(p), 300); return () => clearTimeout(h) }, [p])
@@ -69,7 +78,9 @@ export function Editor({ id }: { id: string }) {
   }
   const undo = () => { const h = history.current.pop(); if (h) { setP({ ...p, slots: h }); slotsRef.current = h; setSel((s) => (s !== null && s >= h.length ? null : s)) } else flash('ไม่มีอะไรให้เลิกทำ') }
   const toggle = () => { const pl = player.current!; if (pl.playing) { pl.pause(); setPlaying(false) } else { pl.play(); setPlaying(true) } }
-  const snapPts = useMemo(() => p.scenes.map((s) => s.endMs).slice(0, -1), [p.scenes])
+  const cutPts = useMemo(() => p.scenes.map((s) => s.endMs).slice(0, -1), [p.scenes])
+  const beats = p.beats ?? []
+  const snapPts = useMemo(() => [...(snapBeat ? beats : []), ...(snapCut ? cutPts : [])], [snapBeat, snapCut, beats, cutPts])
 
   // --- drag a boundary (right edge of slot b). Left handle of slot i is boundary i-1.
   const down = (b: number) => (e: PointerEvent) => {
@@ -80,7 +91,7 @@ export function Editor({ id }: { id: string }) {
   const moveH = (e: PointerEvent) => {
     const d = drag.current; if (!d) return
     let target = d.t0 + (e.clientX - d.x0) / ppm
-    if (snap) target = snapTime(target, snapPts, SNAP_PX / ppm)
+    if (snapPts.length) target = snapTime(target, snapPts, SNAP_PX / ppm)
     const next = moveBoundary(d.base, d.b, target - d.t0, ripple)
     setP((q) => q && { ...q, slots: next }); slotsRef.current = next
   }
@@ -91,6 +102,17 @@ export function Editor({ id }: { id: string }) {
     if (e.key === 'Delete') { e.preventDefault(); setSlots(remove(slots, i)); setSel(null) }
   }
 
+  const previewSlot = (i: number, next: Slot[]) => {
+    const pl = player.current; if (!pl) return
+    slotsRef.current = next
+    const a = starts(next)[i]; pl.pause(); pl.seek(a).then(() => { pl.play(a + next[i].durationMs); setPlaying(true) })
+  }
+  const fx = (f: (x: Slot) => Slot, o?: { record?: boolean; preview?: boolean }) => {
+    if (sel === null) return
+    const next = slots.map((x, k) => (k === sel ? f(x) : x))
+    setSlots(next, o?.record ?? true)
+    if (o?.preview) previewSlot(sel, next)
+  }
   const s = sel !== null ? slots[sel] : undefined
   const sm = s?.mediaId ? media[s.mediaId] : undefined
   const step = TICKS.find((x) => x * 1000 * ppm >= 64) ?? 30
@@ -101,7 +123,7 @@ export function Editor({ id }: { id: string }) {
   const startExport = async () => {
     setExp('run'); setExpP(0); player.current?.pause(); setPlaying(false)
     const c = (ctl.current = new AbortController())
-    try { const r = await exportProject(p, setExpP, c.signal); setOut({ url: URL.createObjectURL(r.blob), ext: r.ext }); setExp('done') }
+    try { const r = await exportProject(p, setExpP, c.signal, soundtrack); setOut({ url: URL.createObjectURL(r.blob), ext: r.ext }); setExp('done') }
     catch (e) { setExp((e as Error).name === 'AbortError' ? null : 'err') }
   }
 
@@ -111,11 +133,16 @@ export function Editor({ id }: { id: string }) {
         <button class="ib" aria-label="เลิกทำ" onClick={undo}><Icon n="undo" /></button>
         <select aria-label="สัดส่วน" value={p.aspect} onChange={(e) => setP({ ...p, aspect: (e.target as HTMLSelectElement).value as Aspect })}>{['9:16', '1:1', '4:5', '16:9'].map((a) => <option key={a}>{a}</option>)}</select>
         <button class="btn sm" disabled={!slots.length} onClick={() => setExp('ask')}><Icon n="upload" />ส่งออก</button></>} />
-      <div class="prev"><canvas ref={canvas} width={cw / 2} height={ch / 2} style={{ aspectRatio: `${cw}/${ch}` }} aria-label="ตัวอย่างวิดีโอ" /></div>
+      <div class="prev"><canvas ref={canvas} width={cw / 2} height={ch / 2} style={{ '--ar': `${cw / ch}` } as any} aria-label="ตัวอย่างวิดีโอ" /></div>
       <div class="ctrl">
         <div class="transport"><button class="ib" aria-label={playing ? 'หยุด' : 'เล่น'} onClick={toggle} disabled={!slots.length}><Icon n={playing ? 'pause' : 'play'} /></button><span class="time">{fmt(t)} / {fmt(len)}</span>
           <span style={{ flex: 1 }} /><button class="ib" aria-label="ซูมออก" onClick={() => setPpm((z) => Math.max(z / 1.5, 0.02))}><Icon n="zout" /></button><button class="ib" aria-label="ซูมเข้า" onClick={() => setPpm((z) => Math.min(z * 1.5, 0.4))}><Icon n="zin" /></button></div>
-        <div class="opts"><button class="chip" aria-pressed={snap} onClick={() => setSnap(!snap)}><Icon n="magnet" />ดูดตามต้นแบบ</button><button class="chip" aria-pressed={ripple} onClick={() => setRipple(!ripple)}><Icon n="ripple" />เลื่อนตาม</button>
+        <div class="opts">
+          <button class="chip" aria-pressed={snapBeat} disabled={!beats.length} onClick={() => setSnapBeat(!snapBeat)}><Icon n="magnet" />ดูดตามบีต{p.bpm ? ` ${Math.round(p.bpm)}` : ''}</button>
+          <button class="chip" aria-pressed={snapCut} disabled={!cutPts.length} onClick={() => setSnapCut(!snapCut)}><Icon n="magnet" />ดูดตามฉากต้นแบบ</button>
+          <button class="chip" aria-pressed={ripple} onClick={() => setRipple(!ripple)}><Icon n="ripple" />เลื่อนตาม</button>
+          {beats.length > 0 && <button class="chip" onClick={() => { setSlots(alignToBeats(slots, beats, 300)); flash('จัดขอบสล็อตตามบีตแล้ว') }}><Icon n="wand" />จัดตามบีต</button>}
+          {buf && p.audio && <button class="chip" aria-pressed={p.audio.on} onClick={() => setP({ ...p, audio: { ...p.audio!, on: !p.audio!.on } })}><Icon n="music" />เสียงต้นแบบ</button>}
           <button class="chip" onClick={() => setSlots([...slots, { id: uid(), sceneIdx: slots.length, durationMs: 2000, mediaId: null, inMs: 0 }])}><Icon n="plus" />สล็อตว่าง</button></div>
       </div>
       <div class="tl"><div class="tl-in"><div style={{ position: 'relative', width: len * ppm + 48 }}>
@@ -126,14 +153,15 @@ export function Editor({ id }: { id: string }) {
             <button key={x.id} class={'slot' + (m ? '' : ' e') + (sel === i ? ' s' : '')} style={{ left: st[i] * ppm, width: Math.max(x.durationMs * ppm - 3, 28), ...(m ? { backgroundImage: `url(${m.thumb})` } : {}) }}
               aria-label={`ฉาก ${i + 1} ${m ? m.name : 'ว่าง'} ยาว ${fmt(x.durationMs)} วินาที ใช้ลูกศรซ้ายขวาเพื่อปรับความยาว`} aria-pressed={sel === i}
               onClick={() => { setSel(i); player.current?.seek(st[i]) }} onKeyDown={key(i)}>
-              {!m && <Icon n="plus" />}<span>{i + 1}</span>
+              {!m && <Icon n="plus" />}<span>{i + 1}</span>{(x.anim || (x.trans && x.trans.type !== 'none') || x.filter || x.text || x.speed) && <span class="fxdot" aria-hidden="true">✦</span>}
             </button>)
         })}
           {sel !== null && slots[sel] && <>
             {sel > 0 && <div class="h" style={{ left: st[sel] * ppm - 12 }} onPointerDown={down(sel - 1)} onPointerMove={moveH} onPointerUp={up} aria-hidden="true"><i /></div>}
             <div class="h" style={{ left: (st[sel] + slots[sel].durationMs) * ppm - 14 }} onPointerDown={down(sel)} onPointerMove={moveH} onPointerUp={up} aria-hidden="true"><i /></div></>}
         </div>
-        <div class="cuts">{snap && snapPts.map((x) => <i key={x} style={{ left: x * ppm, top: 'var(--l-ruler)', height: 'var(--l-timeline-row)' }} />)}</div>
+        <div class="cuts">{snapBeat && beats.filter((x) => x <= len + 500).map((x) => <i class="beat" key={'b' + x} style={{ left: x * ppm, top: 'var(--l-ruler)', height: 'var(--l-timeline-row)' }} />)}
+          {snapCut && cutPts.map((x) => <i class="cut" key={'c' + x} style={{ left: x * ppm, top: 'var(--l-ruler)', height: 'var(--l-timeline-row)' }} />)}</div>
         <div class="ph" style={{ left: t * ppm }} />
       </div></div></div>
       <div class="panel" aria-live="polite">
@@ -144,16 +172,18 @@ export function Editor({ id }: { id: string }) {
           <button class="btn sec sm" onClick={() => { setSlots(remove(slots, sel!)); setSel(null) }}><Icon n="trash" />ลบ</button>
           {sm?.kind === 'video' && <label class="small muted" style={{ display: 'flex', gap: 8, alignItems: 'center', flex: '1 1 100%' }}>เริ่มที่ {fmt(s.inMs)}
             <input type="range" min={0} max={Math.max(sm.durationMs - s.durationMs, 0)} step={100} value={s.inMs} aria-label="จุดเริ่มของคลิปในสล็อต"
-              onInput={(e) => setSlots(slots.map((x, k) => (k === sel ? { ...x, inMs: +(e.target as HTMLInputElement).value } : x)), false)} onChange={() => history.current.push(slots)} /></label>}
+              onInput={(e) => setSlots(slots.map((x, k) => (k === sel ? { ...x, inMs: +(e.target as HTMLInputElement).value } : x)), false)} onPointerDown={() => history.current.push(slots)} /></label>}
+          <FxDock slot={s} isVideo={sm?.kind === 'video'} onPatch={fx} />
         </>}
       </div>
       {pick && s && <MediaSheet title={`เลือกสื่อสำหรับฉาก ${sel! + 1}`} onClose={() => setPick(false)} onPick={async (m) => { setSlots(slots.map((x, k) => (k === sel ? { ...x, mediaId: m.id, inMs: 0 } : x))); await reloadMedia(); setPick(false) }} />}
       {exp && <Sheet title="ส่งออกวิดีโอ" onClose={() => { if (exp !== 'run') setExp(null) }}>
         {exp === 'ask' && <>
-          {!exportMime() && <Notice err>เบราว์เซอร์นี้ส่งออกวิดีโอไม่ได้ ลองใช้ Chrome</Notice>}
+          {!exportMime(!!soundtrack?.on) && <Notice err>เบราว์เซอร์นี้ส่งออกวิดีโอไม่ได้ ลองใช้ Chrome</Notice>}
           {emptyCount > 0 && <Notice>มี {emptyCount} ช่องว่าง จะส่งออกเป็นจอดำ ตรวจดูก่อนหรือเติมให้ครบ</Notice>}
-          <p class="muted small">{p.aspect} · {cw}×{ch} · ใช้เวลาเท่าความยาวคลิป ({fmt(len)}) ส่งออกยังไม่มีเสียงในเวอร์ชันนี้ ไฟล์อยู่ในเครื่องคุณเท่านั้น</p>
-          <div class="footer"><button class="btn block" disabled={!exportMime()} onClick={startExport}>เริ่มส่งออก</button><button class="btn sec block" onClick={() => setExp(null)}>{emptyCount ? 'กลับไปเติมสื่อ' : 'ยกเลิก'}</button></div></>}
+          <p class="muted small">{p.aspect} · {cw}×{ch} · ใช้เวลาเท่าความยาวคลิป ({fmt(len)}) ไฟล์อยู่ในเครื่องคุณเท่านั้น</p>
+          {soundtrack?.on && <Notice>ไฟล์นี้ใส่เสียงจากคลิปต้นแบบ ตรวจสิทธิ์การใช้เพลงก่อนเผยแพร่ หรือปิดปุ่ม "เสียงต้นแบบ" แล้วส่งออกแบบไม่มีเสียง</Notice>}
+          <div class="footer"><button class="btn block" disabled={!exportMime(!!soundtrack?.on)} onClick={startExport}>เริ่มส่งออก</button><button class="btn sec block" onClick={() => setExp(null)}>{emptyCount ? 'กลับไปเติมสื่อ' : 'ยกเลิก'}</button></div></>}
         {exp === 'run' && <><div class="bar" role="progressbar" aria-valuenow={Math.round(expP * 100)} aria-valuemin={0} aria-valuemax={100}><i style={{ width: expP * 100 + '%' }} /></div><p class="muted small">กำลังส่งออก {Math.round(expP * 100)}% อย่าปิดหน้านี้</p><button class="btn sec block" onClick={() => ctl.current?.abort()}>ยกเลิก</button></>}
         {exp === 'done' && out && <><Notice>ส่งออกเสร็จแล้ว</Notice><div class="footer"><a class="btn block" href={out.url} download={`${p.name}.${out.ext}`}><Icon n="upload" />บันทึกไฟล์ .{out.ext}</a><button class="btn sec block" onClick={() => setExp(null)}>ปิด</button></div></>}
         {exp === 'err' && <><Notice err>ส่งออกไม่สำเร็จ ลองใหม่อีกครั้ง</Notice><button class="btn block" onClick={startExport}>ลองใหม่</button></>}

@@ -2,37 +2,37 @@ feature,area,priority,original,clone,notes
 Import photos and videos from device,import,must,yes,yes,"web: file picker, rejects unreadable files"
 Pick reference clip for Auto Cut,auto cut,must,yes,yes,
 Detect shot boundaries in reference,auto cut,must,yes,yes,"web: hard cuts only, ~170ms accuracy, first 3 min"
-Detect music beats and loudness,auto cut,must,yes,no,CapCut auto cut uses beat
+Detect music beats and loudness,auto cut,must,yes,partial,"beats + BPM done (autocorrelation, tested on click tracks); loudness not yet"
 Detect speech pauses,auto cut,should,yes,no,CapCut auto cut option
 Detect transitions and zoom/shake effects,auto cut,should,yes,no,fixed vocabulary; not 100% match
 Detect on-screen text (OCR),auto cut,should,yes,no,Thai+English TBD
 Speech to text captions,auto cut,should,yes,no,local model; language TBD
-Extract reference audio/beat map for use as soundtrack,auto cut,should,yes,no,copyright note for user
+Extract reference audio/beat map for use as soundtrack,auto cut,should,yes,yes,reference audio plays in preview and is mixed into the export; copyright notice shown
 Generate skeleton timeline from analysis,auto cut,must,yes,yes,
 Empty placeholder slots when media is fewer than scenes,auto cut,must,yes,yes,tested: 1 photo vs 4 scenes
 Auto-fill user media into slots,auto cut,must,yes,partial,"in order only, no smart matching yet"
 Fill/replace media in any slot,auto cut,must,yes,yes,
 Drag to resize slot length (never locked),timeline,must,yes,yes,"handles + keyboard arrows, tested"
 Reorder split merge delete slots,timeline,must,yes,partial,split + delete done; reorder and merge not yet
-Snap to beat and cuts (toggle),timeline,should,yes,partial,snaps to reference cut points; no beats yet
+Snap to beat and cuts (toggle),timeline,should,yes,yes,separate toggles for beats and reference cuts; plus one-tap align to beats
 Ripple on/off when resizing,timeline,should,yes,yes,
 Trim in/out point of media in slot,timeline,must,yes,partial,in-point slider for video; no out handle
-Analysis progress with stages and cancel,auto cut,must,yes,partial,only the scenes stage exists; others shown as next phase
+Analysis progress with stages and cancel,auto cut,must,yes,partial,"scenes and beats stages real; effects, text, speech not yet"
 Autosave drafts and resume,projects,must,yes,yes,"IndexedDB, tested reload"
 Project list,projects,must,yes,yes,
 Preview playback with scrub,editor,must,yes,yes,"images + video, no audio"
-Export MP4 with resolution and fps choice,export,must,yes,partial,"real-time WebM/MP4 via MediaRecorder, aspect sets size, no audio, fps fixed 30"
+Export MP4 with resolution and fps choice,export,must,yes,partial,real-time WebM/MP4 via MediaRecorder with soundtrack; aspect sets size; fps fixed 30
 Warn on empty slots at export,export,should,no,yes,our addition
 Multi-track timeline,manual edit,must,yes,no,phase 2
 Split trim delete clips,manual edit,must,yes,no,phase 2
-Speed change,manual edit,should,yes,no,phase 2
-Text overlays and stickers,manual edit,should,yes,no,phase 2
-Filters and color adjust,manual edit,should,yes,no,phase 2
-Transitions between clips,manual edit,should,yes,no,phase 2
+Speed change,manual edit,should,yes,partial,"0.5x-3x playback for video clips; no curves, slot length unchanged"
+Text overlays and stickers,manual edit,should,yes,partial,"one text per slot with position, size, colour, entrance; no stickers"
+Filters and color adjust,manual edit,should,yes,partial,"8 preset filters (CSS filter, not in Safari); no sliders"
+Transitions between clips,manual edit,should,yes,yes,"7 types: fade, fade-black, flash, slide left/up, zoom, wipe, with length"
 Keyframe animation with easing,manual edit,should,yes,no,Alight Motion / KineMaster
 Blend modes and layers,manual edit,could,yes,no,Alight Motion
 Chroma key,manual edit,could,yes,no,KineMaster
-Audio volume fade and voiceover,manual edit,should,yes,no,phase 2
+Audio volume fade and voiceover,manual edit,should,yes,partial,soundtrack on/off; volume stored but no slider; no fade or voiceover
 Export GIF / PNG sequence,export,could,yes,no,Alight Motion
 Template marketplace and trending feed,network,skip,yes,no,not clonable: network and licensed content
 Licensed music/sticker/font/effect library,content,skip,yes,no,use own or open-licensed assets
@@ -50,3 +50,7 @@ Video stabilization,manual edit,could,yes,no,CapCut
 Home as tool launcher (Auto Cut / manual edit / thumbnail),home,must,no,yes,user: home must make room for future tools
 Thumbnail tool auto-layout from reference cover,thumbnail,could,no,no,"future; shown as ""coming soon"" tile"
 Project list filter by kind (all / video / thumbnail),projects,should,no,yes,project.kind column
+Animations In / Out / Combo per clip (CapCut-style),manual edit,must,yes,yes,"9 in, 9 out, 6 combo presets with length; saved per slot; previews on pick"
+Beat-matched auto cut: align slot boundaries to beats in one tap,auto cut,must,no,yes,our addition on top of CapCut beat sync
+"Keyframes, overlays on extra tracks, stickers",manual edit,should,yes,no,not started
+Detect effects/transitions in the reference and apply them,auto cut,must,no,no,next: classify cut type (fade/flash/zoom) per boundary

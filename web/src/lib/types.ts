@@ -14,7 +14,15 @@ export interface Media {
 export interface Scene { idx: number; startMs: number; endMs: number; thumb?: string }
 
 // start is derived from order (see timeline.ts), so slots can never overlap or leave gaps.
-export interface Slot { id: string; sceneIdx: number; durationMs: number; mediaId: string | null; inMs: number }
+export interface TextOverlay { content: string; pos: 'top' | 'center' | 'bottom'; size: number; color: string; anim?: string }
+export interface Slot {
+  id: string; sceneIdx: number; durationMs: number; mediaId: string | null; inMs: number
+  anim?: { in?: string; out?: string; combo?: string; inMs?: number; outMs?: number } // CapCut-style In / Out / Combo
+  trans?: { type: string; ms: number } // transition into this slot from the previous one
+  filter?: string
+  speed?: number // source playback speed for video, 0.25..4
+  text?: TextOverlay
+}
 
 export interface Project {
   id: string
@@ -22,6 +30,9 @@ export interface Project {
   kind: Kind
   aspect: Aspect
   referenceId: string | null
+  beats?: number[] // ms on the reference timeline
+  bpm?: number
+  audio?: { on: boolean; volume: number } // soundtrack taken from the reference clip
   scenes: Scene[]
   slots: Slot[]
   updatedAt: number

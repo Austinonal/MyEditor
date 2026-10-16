@@ -7,6 +7,7 @@ const P: Record<string, string> = {
   scissors: 'M20 4L8.1 15.9M14.5 14.5L20 20M8.1 8.1L12 12M9 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0z',
   image: 'M3 3h18v18H3zM9 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM21 15l-5-5L5 21', alert: 'M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z',
   magnet: 'M6 15a6 6 0 0 0 12 0V3h-4v12a2 2 0 0 1-4 0V3H6zM6 8h4M14 8h4', ripple: 'M3 12h4M17 12h4M12 3v4M12 17v4M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z',
+  music: 'M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM21 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z',
   zin: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3M11 8v6M8 11h6', zout: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3M8 11h6',
 }
 export const Icon = ({ n }: { n: keyof typeof P | string }) => <svg aria-hidden="true" viewBox="0 0 24 24"><path d={P[n]} /></svg>

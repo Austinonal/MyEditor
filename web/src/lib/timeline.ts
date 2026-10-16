@@ -52,3 +52,20 @@ export function move(s: Slot[], i: number, j: number): Slot[] {
   if (j < 0 || j >= s.length || i === j) return s
   const c = [...s]; const [x] = c.splice(i, 1); c.splice(j, 0, x); return c
 }
+
+/** Move every internal boundary onto the nearest beat within maxMs. Total length stays (the last slot absorbs nothing). */
+export function alignToBeats(s: Slot[], beats: number[], maxMs: number): Slot[] {
+  if (!beats.length) return s
+  const out = s.map((x) => ({ ...x }))
+  let acc = 0
+  for (let i = 0; i < out.length - 1; i++) {
+    acc += out[i].durationMs
+    const target = snapTime(acc, beats, maxMs)
+    const prevEnd = acc - out[i].durationMs
+    const nextEnd = acc + out[i + 1].durationMs
+    if (target !== acc && target - prevEnd >= MIN_SLOT_MS && nextEnd - target >= MIN_SLOT_MS) {
+      out[i].durationMs = target - prevEnd; out[i + 1].durationMs = nextEnd - target; acc = target
+    }
+  }
+  return out
+}

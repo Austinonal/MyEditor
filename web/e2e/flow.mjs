@@ -10,11 +10,12 @@ const shots = path.resolve(here, '../../replica/clone-screens'); mkdirSync(shots
 const srv = spawn('npx', ['vite', 'preview', '--port', '4173', '--strictPort'], { cwd: path.resolve(here, '..'), stdio: 'ignore' })
 await new Promise((r) => setTimeout(r, 2500))
 const exe = process.env.CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'
-const b = await chromium.launch({ executablePath: exe, args: ['--no-sandbox'] })
+const b = await chromium.launch({ executablePath: exe, args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required'] })
 const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, acceptDownloads: true })
 const pg = await ctx.newPage()
 const errors = []; pg.on('pageerror', (e) => errors.push(String(e))); pg.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 const ok = (c, msg) => { if (!c) throw new Error('FAIL: ' + msg); console.log('ok  ' + msg) }
+const proj = () => pg.evaluate(() => new Promise((res) => { const r = indexedDB.open('autocut'); r.onsuccess = () => { const g = r.result.transaction('projects').objectStore('projects').getAll(); g.onsuccess = () => res(g.result[0]) } }))
 const pick = async (btn, files) => { const [fc] = await Promise.all([pg.waitForEvent('filechooser'), btn.click()]); await fc.setFiles(files) }
 try {
   await pg.goto('http://localhost:4173/'); await pg.waitForSelector('text=วันนี้อยากสร้างอะไร')
@@ -45,6 +46,31 @@ try {
   ok((await slot.nth(1).boundingBox()).width < w1, 'keyboard arrows resize too')
   await pg.getByRole('button', { name: 'เลิกทำ' }).click(); await pg.getByRole('button', { name: 'เลิกทำ' }).click()
   ok(Math.abs((await slot.nth(1).boundingBox()).width - w0) < 2, 'undo twice restores the original length')
+  // --- beats
+  await pg.waitForSelector('text=/ดูดตามบีต 1(19|20|21)/'); ok(true, 'beat tracker reads ~120 BPM from the reference audio')
+  await pg.waitForTimeout(600)
+  const p0 = await proj(); ok(p0.beats.length >= 10 && Math.abs(p0.beats[1] - p0.beats[0] - 500) < 30 && Math.abs(p0.beats[0] - 200) < 40, `beat grid stored (${p0.beats.length} beats, first at ${p0.beats[0]}ms, spacing ${p0.beats[1] - p0.beats[0]}ms)`)
+  await pg.getByRole('button', { name: 'จัดตามบีต' }).click(); await pg.waitForTimeout(600)
+  const p1 = await proj(); const sum = (a) => a.reduce((x, y) => x + y.durationMs, 0)
+  ok(p1.slots.every((x) => Math.abs((x.durationMs - 0) % 1) === 0) && Math.abs(p1.slots[0].durationMs - 1700) < 60 && sum(p1.slots) === sum(p0.slots), `"จัดตามบีต" snaps cuts to beats and keeps total (${p1.slots.map((x) => x.durationMs).join(', ')})`)
+  // --- CapCut-style effects: In / Out / Combo / transition / filter / text
+  const fxBtn = (n) => pg.locator('.fxrow').getByRole('button', { name: n, exact: true }).click()
+  const tab = (n) => pg.getByRole('tab', { name: n }).click()
+  await slot.nth(1).click(); await tab('ทรานซิชัน'); await fxBtn('สไลด์ซ้าย')
+  await slot.nth(0).click()
+  await tab('เข้า'); await fxBtn('ซูมเข้า'); await tab('ออก'); await fxBtn('เฟดออก'); await tab('คอมโบ'); await fxBtn('ซูมช้า')
+  await tab('ฟิลเตอร์'); await fxBtn('ขาวดำ')
+  await tab('ข้อความ'); await pg.getByLabel('ข้อความบนวิดีโอ').fill('สวัสดีทะเล')
+  await pg.waitForTimeout(900)
+  const pj = await proj(); const p2 = pj.slots[0]
+  ok(p2.anim.in === 'zoomIn' && p2.anim.out === 'fade' && p2.anim.combo === 'kenburns' && p2.filter === 'bw' && p2.text.content === 'สวัสดีทะเล' && pj.slots[1].trans.type === 'slideLeft', 'in / out / combo / transition / filter / text saved on the slots')
+  await pg.getByRole('button', { name: 'หยุด' }).click().catch(() => {})
+  const seekAt = async (ms) => { const r = await pg.locator('.ruler').boundingBox(); const pxPerMs = (await pg.locator('.slot').nth(0).boundingBox()).width / p2.durationMs; await pg.mouse.click(r.x + ms * pxPerMs + 2, r.y + 10); await pg.waitForTimeout(500); console.log('   seek', ms, '->', await pg.locator('.time').innerText()) }
+  await seekAt(900); await pg.locator('.prev canvas').screenshot({ path: `${shots}/fx-mid-slot-bw-text.png` })
+  await tab('ออก'); await fxBtn('ไม่มี') // so the outgoing frame is visible in the transition shot
+  await seekAt(p2.durationMs + 100); await pg.locator('.prev canvas').screenshot({ path: `${shots}/fx-transition-slide.png` })
+  await pg.getByRole('button', { name: 'เลิกทำ' }).click(); await pg.waitForTimeout(700)
+  ok((await proj()).slots[0].anim.out === 'fade', 'undo reverts the last effect change')
   await pg.getByRole('button', { name: 'เล่น' }).click(); await pg.waitForTimeout(600); await pg.screenshot({ path: `${shots}/S06-editor.png` })
   await pg.getByRole('button', { name: 'หยุด' }).click()
   await pg.getByRole('button', { name: /ส่งออก/ }).first().click()
@@ -53,6 +79,8 @@ try {
   await pg.getByRole('button', { name: 'เริ่มส่งออก' }).click()
   const dl = await Promise.all([pg.waitForEvent('download', { timeout: 60000 }), pg.waitForSelector('text=บันทึกไฟล์').then((e) => e.click())]).then((r) => r[0])
   const f = path.join('/tmp', 'e2e-out.' + dl.suggestedFilename().split('.').pop()); await dl.saveAs(f)
+  const probe = (await import('node:child_process')).execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'stream=codec_type', '-of', 'csv=p=0', f]).toString()
+  ok(probe.includes('audio') && probe.includes('video'), 'exported file has video and the reference soundtrack (audio)')
   ok(statSync(f).size > 5000, `exported file saved (${statSync(f).size} bytes, ${dl.suggestedFilename()})`)
   // reopen from home: autosave
   await pg.goto('http://localhost:4173/'); await pg.waitForSelector('.proj')
