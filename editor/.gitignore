@@ -1,0 +1,5 @@
+node_modules/
+dist/
+src/tokens.css
+android/
+public/ocr/

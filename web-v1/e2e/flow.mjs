@@ -6,7 +6,7 @@ import { statSync, mkdirSync } from 'node:fs'
 import path from 'node:path'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
-const shots = path.resolve(here, '../../replica/clone-screens'); mkdirSync(shots, { recursive: true })
+const shots = path.resolve(here, '../../replica/web-v1/clone-screens'); mkdirSync(shots, { recursive: true })
 const srv = spawn('npx', ['vite', 'preview', '--port', '4173', '--strictPort'], { cwd: path.resolve(here, '..'), stdio: 'ignore' })
 await new Promise((r) => setTimeout(r, 2500))
 const exe = process.env.CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'

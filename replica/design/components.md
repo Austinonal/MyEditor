@@ -1,49 +1,131 @@
-# Components (v2 redesign)
+# Components
 
-Redesign rules applied (from the UI/UX skill's priority list, since its search tool was not installed here): contrast >= 4.5 text and 3 for UI parts (checked, 0 failures); touch targets 48 with 8 gaps; bottom nav max 5 (home uses 3, editor toolbar 5); Lucide-style SVG icons only, no emoji; visible labels, never icon-only buttons; reduced-motion zeroes all durations (tokens.css); state shown by shape + icon + text, not colour alone (empty slot = dashed + plus icon + label); Thai line-height 1.6; semantic tokens only, no raw hex in components; safe-area padding on top and bottom bars. Reference mockups: `screens.html` / `screens.png` (S01, S04, S05, S06).
+Tokens: `replica/design/tokens.json` (classes like `bg-surface text-muted`,
+never raw hex). Icons: Lucide (ISC licence), no CapCut icons. Every label is
+our own copy. The UI font is the system stack (Roboto + Noto Sans Thai on
+Android), so nothing is downloaded. Fonts for text *layers* in videos are a
+separate, bundled OFL set (see architecture).
 
-Icons: Lucide (open). Font: Noto Sans Thai (open, covers Thai + Latin). All sizes in dp/px. Min touch target 48. Tokens from `tokens.json`.
-Every component below needs TalkBack/screen-reader labels (Thai + English strings) and works with system font scaling up to 200%.
+Not measured from screenshots: there were none. Sizes come from the touch
+target rule (48 px) and the type scale. Compare against the real app on your
+phone and adjust tokens, not components.
 
-**Button** variants primary, secondary, ghost, danger; sizes md 48, sm 40; states default, pressed, focus-visible (2px accent ring), disabled, loading (keeps label for screen readers). Tokens: accent/on-accent, radius md. Used on S01,S03,S05,S12.
+Built now as primitives (`editor/src/ui/`, shown on `#/design`): Button,
+ToolButton, BottomToolbar, TopBar, BottomSheet, Slider, CategoryTabs,
+PresetTile, Swatches, ProgressPanel, DraftCard.
 
-**IconButton** 48x48 hit area, 24 icon, label required. Used in toolbar S06.
+Built with the timeline in `/replica-build` milestone 2.1, because they need
+the engine: Timeline, TimelineClip, Playhead, JoinMarker, KeyframeDiamond,
+PreviewPlayer, TransformHandles, CurveEditor, RecordButton.
 
-**Slot block** (the key component). Height `timeline-row`, min width 24, radius sm.
-- empty: dashed 2px `slot-empty-border`, plus icon, label "ว่าง / Empty", number badge
-- filled: `slot-filled` fill, thumbnail strip, duration label
-- selected: 2px `slot-selected` border, two 20px-wide drag handles at left/right edges (whole 48px tall target)
-- dragging: raised shadow, snap guide line shows when snapped to beat/cut
-- never locked: handles always present; long-press to reorder; a11y custom actions "extend / shorten / move / delete / fill"
-Used on S05,S06,S07,S08.
+## Layout (phone first, same layout on desktop web)
 
-**Timeline**: horizontal scroll + pinch zoom, ruler with time, beat markers (`beat-marker`, 2px ticks), playhead (`playhead`, 2px line with 12px head), track lanes with `track-*` colour, waveform lane. Used on S06,S09.
+```
+TopBar        48   close | project name | export
+Preview       flex (letterboxed to the project aspect, bg colour = canvas)
+Timeline      208  ruler + main track + extra tracks (48 each), scrolls
+BottomToolbar 64   horizontal scroll of ToolButtons
+BottomSheet   over toolbar + timeline, max 60vh, max width 520 centred
+```
 
-**Preview player**: 9:16 letterbox in other ratios, play/pause, scrub, current/total time. Used on S06,S07.
+Desktop: the same column, sheets centred at 520 px. A side-panel layout is a
+could-have, not v1.
 
-**Media grid cell**: square thumbnail, selection order badge, video duration chip. States default, selected, loading, unreadable. Used on S02.
+## Primitives
 
-**Progress card** (analysis): stage list (scenes, beats, effects, text, speech) each pending/running/done/failed, overall bar, cancel. Used on S04.
+```
+Button
+  variants  primary (bg accent, text on-accent), secondary (bg raised, text), ghost (text only), danger (text danger)
+  sizes     md 40px, lg 48px (default on touch)
+  states    default, active (90% brightness), focus-visible (2px ring accent, 2px offset), disabled (40% opacity, no pointer), loading (spinner, label kept, aria-busy)
+  tokens    radius md, type sm/600
+  a11y      real <button>; icon-only needs aria-label
+  used on   S01, S26, S27, sheet footers
 
-**Model download card** (first run): size, Wi-Fi only toggle, progress, retry, "later". Used on first launch / S13.
+ToolButton
+  variants  default, active (tool panel open), pro-badge: never (no paywall)
+  size      64 x 64 hit area, icon 24, label xs below
+  states    default, pressed, active (icon + label accent), focus-visible, disabled
+  tokens    text-muted -> text when active; accent when active
+  a11y      <button> with visible label; aria-pressed for toggles (Mute, Reverse)
+  used on   S03, S04 bottom toolbar
 
-**Bottom sheet**: drag handle, scrim, dismiss by swipe and Back. Used on S07,S10,S11,S12.
+BottomToolbar
+  variants  global (nothing selected), clip (clip selected), audio, text
+  layout    height 64, horizontal scroll, snap to buttons, bg surface, top border
+  states    default, scrolled (fade edge)
+  a11y      role="toolbar" with aria-label naming the context ("Clip tools")
+  used on   S03, S04
 
-**Toggle chip** (Snap, Ripple, Beats): on/off with check, 40px. Used on S06,S08.
+TopBar
+  layout    height 48, bg bg; left: close/back, centre: title (truncate), right: primary action
+  a11y      <header>; back button labelled
+  used on   S01, S03, S26
 
-**Slider** (volume, effect intensity): 48 touch height, value label. Used on S09,S10.
+BottomSheet
+  layout    native <dialog>, from bottom, bg surface, radius lg top corners, shadow sheet, max 60vh, max width 520
+  parts     header (title, Done button), body (scroll), optional footer
+  states    opening (slide up, motion base), open, closing; no "loading" state: content shows its own
+  a11y      showModal() gives focus trap and Esc; title is aria-labelledby; focus returns to the opener
+  used on   S05-S26 (every tool panel)
 
-**Text field**: label above, `border-input` border, error text with icon, helper. Used on S11,S13.
+Slider
+  variants  value (0..100), signed (-100..100, centre detent), range-log (speed 0.1x..100x), duration
+  parts     label, track, thumb, value readout
+  states    default, dragging (thumb grows), focus-visible, disabled
+  tokens    track border, fill accent, thumb text
+  a11y      native <input type="range">; aria-valuetext for readable units ("2.0x", "0.5 s")
+  used on   S05, S06, S08, S17, S18, S24
 
-**Dialog / Toast**: confirm (empty slots at export), undo toast after delete. Used on S12.
+CategoryTabs
+  layout    horizontal scroll of text chips, height 40
+  states    default, selected (text + underline accent), focus-visible
+  a11y      buttons with aria-pressed; arrow keys not required in v1
+  used on   S06, S16, S17, S24, S09 (font list)
 
-**Empty state**: icon + one-line Thai/English copy + one action, written fresh. Used on S01,S02.
+PresetTile
+  parts     thumbnail 64x64 radius md, label xs (1 line, truncate)
+  states    default, selected (2px accent ring + check), loading thumbnail (raised placeholder), "none" tile (slash icon)
+  a11y      <button aria-pressed>; label is the accessible name
+  used on   S06, S09 animations, S17, S24 (grids of 4 per row on phone)
 
-## v3: checked against the installed ui-ux-pro-max database (nextlevelbuilder, v2.15.0)
-- Style match: "Dark Mode (OLED)" (keep near-black bg, visible focus, reduced motion). Its suggested pink/blue "video" palette and the "Hero-Centric" landing pattern were **not** adopted: the pattern is for landing pages, and the accent stays a neutral placeholder until /replica-brand.
-- Typography: database confirms **Noto Sans Thai** (Thai + Latin). Web: Google Fonts import in `screens.html`/`web.html`. Android: bundle the .ttf in `res/font` (no runtime fetch).
-- Touch: Android 48dp, iOS 44pt, web 24 CSS px minimum but we keep 48 on touch layouts.
-- Progress: multi-step work shows "Step 2 of 5" plus a bar (S04).
-- Empty states: message + one action (S05 "เติม" on every empty slot).
-- Web responsive: mobile-first, breakpoints 768 (adds media panel) and 1100 (adds inspector). Mockup: `web.html`, screenshots `web-1280.png`, `web-375.png`.
-- Compose/Tailwind stack searches returned thin results (Compose: state + animate*AsState only); the rest follows our own rules.
+Swatches
+  parts     row of 32px circles + custom colour (native <input type="color">)
+  states    default, selected (ring), focus-visible
+  a11y      each swatch a button with aria-label (colour name or hex)
+  used on   S09, S20
+
+ProgressPanel
+  parts     title, determinate bar, percent, Cancel
+  states    running, failed (message + Retry), done (Save / Share)
+  a11y      <progress> element; live region announces done/failed
+  used on   S27 (export), S11/S12 later
+
+DraftCard
+  parts     cover 16:9 or per aspect, name, duration (mono), updated date
+  states    default, pressed, missing media (warning icon), long-press menu (rename, duplicate, delete) is a should-have
+  a11y      the whole card is one <button>; menu has its own labelled button
+  used on   S01
+```
+
+## Engine-bound (spec now, build with the timeline)
+
+```
+Timeline
+  parts     ruler (timecode, mono xs), tracks stacked (main first), playhead fixed in the centre, content scrolls under it
+  states    idle, scrubbing, playing (auto-scroll), clip selected, dragging, pinch-zoomed
+  tokens    track height 48, clip radius sm, gaps 2px, bg bg
+  a11y      Play/Pause and Split are reachable as buttons; timeline itself is pointer-first (documented limit)
+
+TimelineClip
+  variants  video/photo (thumbnail strip), audio (waveform on clip-audio), text (label on clip-text)
+  states    default, selected (2px playhead-colour border + trim handles 16px wide), dragging (raised, 80% opacity), muted (icon)
+
+Playhead       2px line, colour playhead, full timeline height
+JoinMarker     16px square on the main track seam; empty = plus icon, filled = transition icon; tap opens S06
+KeyframeDiamond 12px rotated square, colour keyframe; filled when the playhead is on it
+PreviewPlayer  canvas sized to the aspect, play/pause button 48px, timecode "00:03 / 00:15" mono
+TransformHandles corner handle 24px (hit area 48), rotate handle above, delete in the corner
+CurveEditor    square, grid lines border, curve accent, points 16px (hit 48)
+RecordButton   72px circle danger; recording = pulsing ring + timer
+```
