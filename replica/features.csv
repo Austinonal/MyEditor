@@ -1,28 +1,28 @@
 feature,area,priority,original,clone,notes
-Import photos and videos from device,import,must,yes,no,
-Pick reference clip for Auto Cut,auto cut,must,yes,no,
-Detect shot boundaries in reference,auto cut,must,yes,no,core of the skeleton
+Import photos and videos from device,import,must,yes,yes,"web: file picker, rejects unreadable files"
+Pick reference clip for Auto Cut,auto cut,must,yes,yes,
+Detect shot boundaries in reference,auto cut,must,yes,yes,"web: hard cuts only, ~170ms accuracy, first 3 min"
 Detect music beats and loudness,auto cut,must,yes,no,CapCut auto cut uses beat
 Detect speech pauses,auto cut,should,yes,no,CapCut auto cut option
 Detect transitions and zoom/shake effects,auto cut,should,yes,no,fixed vocabulary; not 100% match
 Detect on-screen text (OCR),auto cut,should,yes,no,Thai+English TBD
 Speech to text captions,auto cut,should,yes,no,local model; language TBD
 Extract reference audio/beat map for use as soundtrack,auto cut,should,yes,no,copyright note for user
-Generate skeleton timeline from analysis,auto cut,must,yes,no,
-Empty placeholder slots when media is fewer than scenes,auto cut,must,yes,no,user example 1 media vs 6-7 slots
-Auto-fill user media into slots,auto cut,must,yes,no,
-Fill/replace media in any slot,auto cut,must,yes,no,
-Drag to resize slot length (never locked),timeline,must,yes,no,user requirement
-Reorder split merge delete slots,timeline,must,yes,no,
-Snap to beat and cuts (toggle),timeline,should,yes,no,
-Ripple on/off when resizing,timeline,should,yes,no,
-Trim in/out point of media in slot,timeline,must,yes,no,
-Analysis progress with stages and cancel,auto cut,must,yes,no,
-Autosave drafts and resume,projects,must,yes,no,
-Project list,projects,must,yes,no,
-Preview playback with scrub,editor,must,yes,no,
-Export MP4 with resolution and fps choice,export,must,yes,no,
-Warn on empty slots at export,export,should,no,no,our addition
+Generate skeleton timeline from analysis,auto cut,must,yes,yes,
+Empty placeholder slots when media is fewer than scenes,auto cut,must,yes,yes,tested: 1 photo vs 4 scenes
+Auto-fill user media into slots,auto cut,must,yes,partial,"in order only, no smart matching yet"
+Fill/replace media in any slot,auto cut,must,yes,yes,
+Drag to resize slot length (never locked),timeline,must,yes,yes,"handles + keyboard arrows, tested"
+Reorder split merge delete slots,timeline,must,yes,partial,split + delete done; reorder and merge not yet
+Snap to beat and cuts (toggle),timeline,should,yes,partial,snaps to reference cut points; no beats yet
+Ripple on/off when resizing,timeline,should,yes,yes,
+Trim in/out point of media in slot,timeline,must,yes,partial,in-point slider for video; no out handle
+Analysis progress with stages and cancel,auto cut,must,yes,partial,only the scenes stage exists; others shown as next phase
+Autosave drafts and resume,projects,must,yes,yes,"IndexedDB, tested reload"
+Project list,projects,must,yes,yes,
+Preview playback with scrub,editor,must,yes,yes,"images + video, no audio"
+Export MP4 with resolution and fps choice,export,must,yes,partial,"real-time WebM/MP4 via MediaRecorder, aspect sets size, no audio, fps fixed 30"
+Warn on empty slots at export,export,should,no,yes,our addition
 Multi-track timeline,manual edit,must,yes,no,phase 2
 Split trim delete clips,manual edit,must,yes,no,phase 2
 Speed change,manual edit,should,yes,no,phase 2
@@ -38,7 +38,7 @@ Template marketplace and trending feed,network,skip,yes,no,not clonable: network
 Licensed music/sticker/font/effect library,content,skip,yes,no,use own or open-licensed assets
 Cloud AI generative features,ai,skip,yes,no,out of scope: on-device only
 Accounts cloud sync subscriptions,platform,skip,yes,no,not needed for personal use
-Aspect ratios 9:16 default plus 1:1 4:5 16:9,export,must,yes,no,user answer
+Aspect ratios 9:16 default plus 1:1 4:5 16:9,export,must,yes,yes,user answer
 Thai and English speech and text detection,auto cut,must,yes,no,user answer
 Shared project JSON format between web and Android,platform,must,no,no,two codebases
 Save project as reusable template,templates,could,yes,no,KineMaster Mix
@@ -47,6 +47,6 @@ Noise removal and vocal separator,manual edit,could,yes,no,KineMaster
 Motion tracking for text/stickers,manual edit,could,yes,no,KineMaster/CapCut
 Speed 0.1x-100x with curves and freeze,manual edit,should,yes,no,CapCut
 Video stabilization,manual edit,could,yes,no,CapCut
-Home as tool launcher (Auto Cut / manual edit / thumbnail),home,must,no,no,user: home must make room for future tools
-Thumbnail tool auto-layout from reference cover,thumbnail,could,no,no,future; shown as "coming soon" tile
-Project list filter by kind (all / video / thumbnail),projects,should,no,no,project.kind column
+Home as tool launcher (Auto Cut / manual edit / thumbnail),home,must,no,yes,user: home must make room for future tools
+Thumbnail tool auto-layout from reference cover,thumbnail,could,no,no,"future; shown as ""coming soon"" tile"
+Project list filter by kind (all / video / thumbnail),projects,should,no,yes,project.kind column
