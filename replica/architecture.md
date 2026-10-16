@@ -59,7 +59,7 @@ Matching media to slots (the "smart" bit): score by aspect fit, duration >= slot
 2. Thai ASR/OCR quality and size on-device (model download 70-500MB; first-run download screen needed).
 3. Two separate engines producing the same analysis, and smooth touch timeline on both.
 
-## 7. Open decisions for the user
-- Android minimum version / low-RAM devices (suggest API 26+, 4GB RAM recommended)?
-- Model download on first run OK (Thai models are big)?
-- Android first, or web first for the vertical slice? (Recommended: Android first.)
+## 7. Decisions (answered by the user)
+- Android minimum: API 26+, 4GB RAM recommended. Devices below that use the web PWA instead (so the web app must stay usable, with lighter analysis settings).
+- First-run model download: explained to the user, answer pending (see chat); default assumption = download once on Wi-Fi, then offline.
+- Slice 1 is Android first, web second.
