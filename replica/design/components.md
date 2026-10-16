@@ -38,3 +38,12 @@ Used on S05,S06,S07,S08.
 **Dialog / Toast**: confirm (empty slots at export), undo toast after delete. Used on S12.
 
 **Empty state**: icon + one-line Thai/English copy + one action, written fresh. Used on S01,S02.
+
+## v3: checked against the installed ui-ux-pro-max database (nextlevelbuilder, v2.15.0)
+- Style match: "Dark Mode (OLED)" (keep near-black bg, visible focus, reduced motion). Its suggested pink/blue "video" palette and the "Hero-Centric" landing pattern were **not** adopted: the pattern is for landing pages, and the accent stays a neutral placeholder until /replica-brand.
+- Typography: database confirms **Noto Sans Thai** (Thai + Latin). Web: Google Fonts import in `screens.html`/`web.html`. Android: bundle the .ttf in `res/font` (no runtime fetch).
+- Touch: Android 48dp, iOS 44pt, web 24 CSS px minimum but we keep 48 on touch layouts.
+- Progress: multi-step work shows "Step 2 of 5" plus a bar (S04).
+- Empty states: message + one action (S05 "เติม" on every empty slot).
+- Web responsive: mobile-first, breakpoints 768 (adds media panel) and 1100 (adds inspector). Mockup: `web.html`, screenshots `web-1280.png`, `web-375.png`.
+- Compose/Tailwind stack searches returned thin results (Compose: state + animate*AsState only); the rest follows our own rules.

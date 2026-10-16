@@ -1,0 +1,38 @@
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AutoCut web editor</title><link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap">
+<style>
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;background:var(--c-bg);color:var(--c-text);font:var(--fw-body) var(--fs-body)/var(--lh-body) var(--font-sans)}
+.app{display:grid;height:100dvh;grid-template-rows:var(--l-header) 1fr auto;grid-template-areas:"top" "stage" "tl";padding-bottom:env(safe-area-inset-bottom)}
+.top{grid-area:top;display:flex;align-items:center;gap:8px;padding:0 16px;border-bottom:1px solid var(--c-border)}
+.top h1{flex:1;margin:0;font-size:var(--fs-title);line-height:var(--lh-title)}
+.stage{grid-area:stage;display:grid;grid-template-columns:1fr;min-height:0}
+.panel{display:none;background:var(--c-surface);border-right:1px solid var(--c-border);padding:16px;overflow:auto}
+.prev{display:grid;place-items:center;padding:16px;min-height:0}
+.phone{height:min(100%,520px);aspect-ratio:9/16;background:linear-gradient(160deg,#25375a,#0b0c0f);border-radius:var(--r-md);display:grid;place-items:center}
+.tl{grid-area:tl;background:var(--c-surface);border-top:1px solid var(--c-border);padding:8px 16px 16px}
+.chips{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.chip{min-height:40px;padding:0 14px;border-radius:var(--r-pill);display:inline-flex;align-items:center;background:var(--c-surface-high);font-weight:600;border:0;color:var(--c-text);font-family:inherit;font-size:var(--fs-label)}
+.chip[aria-pressed=true]{background:var(--c-accent-soft);color:var(--c-accent);outline:1px solid var(--c-accent)}
+.row{display:flex;gap:3px;height:var(--l-timeline-row);position:relative}
+.slot{border-radius:var(--r-sm);display:grid;place-items:center;font-size:var(--fs-caption);font-weight:600;min-width:var(--l-slot-min-width)}
+.f{background:var(--c-slot-filled)}.e{background:var(--c-slot-empty-fill);border:2px dashed var(--c-slot-empty-border);color:var(--c-text-muted)}
+.s{outline:2px solid var(--c-slot-selected);outline-offset:1px}
+.btn{min-height:48px;padding:0 20px;border-radius:var(--r-pill);border:0;font:inherit;font-weight:600;background:var(--c-accent);color:var(--c-on-accent)}
+.btn:focus-visible,.chip:focus-visible{outline:2px solid var(--c-accent);outline-offset:2px}
+.media{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.media div{aspect-ratio:1;border-radius:var(--r-sm);background:var(--c-surface-high)}
+h2{font-size:var(--fs-label);color:var(--c-text-muted);margin:0 0 12px}
+.insp{display:none}
+@media(min-width:768px){.stage{grid-template-columns:240px 1fr}.panel.l{display:block}}
+@media(min-width:1100px){.stage{grid-template-columns:280px 1fr 300px}.insp{display:block;border-right:0;border-left:1px solid var(--c-border)}}
+</style></head><body><div class="app">
+<header class="top"><h1>ทะเล · 9:16</h1><button class="btn">ส่งออก</button></header>
+<main class="stage">
+ <aside class="panel l"><h2>สื่อของคุณ</h2><div class="media"><div></div><div></div><div></div></div></aside>
+ <section class="prev"><div class="phone" aria-label="Preview"></div></section>
+ <aside class="panel insp"><h2>ฉาก 2 · ซูมเข้า</h2><p style="color:var(--c-text-muted)">ความยาว 1.6 วิ ลากขอบสล็อตเพื่อปรับ</p></aside>
+</main>
+<section class="tl"><div class="chips"><button class="chip" aria-pressed="true">ดูดบีต</button><button class="chip" aria-pressed="false">เลื่อนตาม</button></div>
+<div class="row"><div class="slot f" style="flex:3">1</div><div class="slot f s" style="flex:2">2</div><div class="slot e" style="flex:3">+ 3 ว่าง</div><div class="slot e" style="flex:2">+ 4 ว่าง</div><div class="slot f" style="flex:3">5</div></div></section>
+</div></body></html>
