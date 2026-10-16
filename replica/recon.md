@@ -8,7 +8,7 @@
 - **Hard rule from user:** the plan is a suggestion, never locked. Every slot can be dragged and resized. Anything unclear goes back to the user first.
 
 ## 2. Sources
-Access note: play.google.com and capcut.com were unreachable from this sandbox (DNS blocked), so Play listings were NOT read directly. Everything below is from web-search summaries and general knowledge. Confidence is marked. Ask the user to paste listing text / screenshots to raise it.
+Access note: WebFetch is still blocked, but `curl` through the proxy works, so the three Play listings and CapCut's Auto Cut help page (dated 2026-02-03) were read directly. See section 2b. Confidence upgraded to high for those facts.
 
 | source | gives | status |
 | --- | --- | --- |
@@ -18,6 +18,13 @@ Access note: play.google.com and capcut.com were unreachable from this sandbox (
 | KineMaster features page (kinemaster.com/features) | multi-layer, chroma key, keyframes, asset store, 4K export | via search, medium |
 | Alight Motion listing / AlternativeTo | keyframes + easing curves, vector, blend modes, 160+ effects, MP4/GIF/PNG-seq export | via search, medium |
 | User's own account / screenshots | real screens and states | **not yet provided** |
+
+## 2b. Verified from the listings (high confidence)
+- **CapCut Auto Cut (help page):** AI tool that analyses video+audio and makes rhythm-synced cuts. Modes: Beat Sync, Speech Pause Detection, AI Script Mode (type an instruction). Mobile + desktop only, not web. Note: it cuts *your* clips to a beat; it does not copy a reference clip. The user's reference-to-skeleton idea goes beyond it.
+- **KineMaster:** "Pick a template, replace its photos and videos, and you're done" is the slot model. "Mix" saves a project as a shareable template. Also AI auto captions, TTS, AI voice, music match, background removal, noise removal, vocal separator, AI tracking, upscaling, keyframes, chroma key, speed control, 4K 60fps, cloud backup.
+- **CapCut:** speed 0.1x-100x + speed curves, freeze, zoom effects, transitions, keyframes on all settings, optical-flow slow-mo, chroma key, stabilization, multi-track timeline, auto captions, TTS, background removal, local font import, filters/effects, extract audio, 4K 60fps + HDR export.
+- **Alight Motion:** layers, vector+bitmap, 160+ effect blocks, keyframes with easing curves, parent/child rigging, cameras, masks, motion blur, export MP4/GIF/PNG sequence, project packages; needs 1.5GB RAM; free tier has watermark (we skip that).
+- **Implication:** the reference-video -> editable skeleton with empty slots is a gap none of the three does as one step. Templates in KineMaster are the closest, but hand-made.
 
 ## 3. Screen inventory
 | ID | screen | how you get there | purpose | key components | states |
@@ -86,8 +93,9 @@ Hard parts:
 Out of scope for now: accounts, cloud sync, payments, templates marketplace.
 
 ## 10. Open questions for the user
-1. Can you paste Play Store listing text or screenshots of the three apps (and CapCut's Auto Cut / Template screens)? Direct access failed.
-2. Free of watermark, no ads, no subscription: confirm.
-3. Output aspect ratio default: 9:16 vertical?
-4. Which languages must speech/text detection support (Thai + English?). This decides the speech-to-text and OCR models.
-5. One shared codebase for web+Android, or Android native separately? (affects /replica-architect)
+Answered by the user:
+1. Listings: read via curl (see 2b). Screenshots of real screens would still help.
+2. No watermark, ads or subscription.
+3. Default 9:16, other aspect ratios (1:1, 4:5, 16:9) also supported.
+4. Thai + English for speech and on-screen text.
+5. Web PWA and native Android are separate codebases. Share one project JSON format.

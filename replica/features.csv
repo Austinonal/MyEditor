@@ -38,3 +38,12 @@ Template marketplace and trending feed,network,skip,yes,no,not clonable: network
 Licensed music/sticker/font/effect library,content,skip,yes,no,use own or open-licensed assets
 Cloud AI generative features,ai,skip,yes,no,out of scope: on-device only
 Accounts cloud sync subscriptions,platform,skip,yes,no,not needed for personal use
+Aspect ratios 9:16 default plus 1:1 4:5 16:9,export,must,yes,no,user answer
+Thai and English speech and text detection,auto cut,must,yes,no,user answer
+Shared project JSON format between web and Android,platform,must,no,no,two codebases
+Save project as reusable template,templates,could,yes,no,KineMaster Mix
+Background removal,manual edit,could,yes,no,CapCut/KineMaster
+Noise removal and vocal separator,manual edit,could,yes,no,KineMaster
+Motion tracking for text/stickers,manual edit,could,yes,no,KineMaster/CapCut
+Speed 0.1x-100x with curves and freeze,manual edit,should,yes,no,CapCut
+Video stabilization,manual edit,could,yes,no,CapCut
