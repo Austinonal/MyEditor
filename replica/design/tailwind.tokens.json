@@ -21,7 +21,11 @@
         "beat-marker": "var(--c-beat-marker)",
         "track-video": "var(--c-track-video)",
         "track-audio": "var(--c-track-audio)",
-        "track-text": "var(--c-track-text)"
+        "track-text": "var(--c-track-text)",
+        "surface-high": "var(--c-surface-high)",
+        "accent-soft": "var(--c-accent-soft)",
+        "scrim": "var(--c-scrim)",
+        "slot-empty-fill": "var(--c-slot-empty-fill)"
       },
       "fontFamily": {
         "sans": [
@@ -35,7 +39,14 @@
         "sm": "var(--r-sm)",
         "md": "var(--r-md)",
         "lg": "var(--r-lg)",
+        "xl": "var(--r-xl)",
         "pill": "var(--r-pill)"
+      },
+      "boxShadow": {
+        "0": "var(--el-0)",
+        "1": "var(--el-1)",
+        "2": "var(--el-2)",
+        "3": "var(--el-3)"
       }
     }
   }

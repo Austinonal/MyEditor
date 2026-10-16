@@ -1,4 +1,6 @@
-# Components
+# Components (v2 redesign)
+
+Redesign rules applied (from the UI/UX skill's priority list, since its search tool was not installed here): contrast >= 4.5 text and 3 for UI parts (checked, 0 failures); touch targets 48 with 8 gaps; bottom nav max 5 (home uses 3, editor toolbar 5); Lucide-style SVG icons only, no emoji; visible labels, never icon-only buttons; reduced-motion zeroes all durations (tokens.css); state shown by shape + icon + text, not colour alone (empty slot = dashed + plus icon + label); Thai line-height 1.6; semantic tokens only, no raw hex in components; safe-area padding on top and bottom bars. Reference mockups: `screens.html` / `screens.png` (S01, S04, S05, S06).
 
 Icons: Lucide (open). Font: Noto Sans Thai (open, covers Thai + Latin). All sizes in dp/px. Min touch target 48. Tokens from `tokens.json`.
 Every component below needs TalkBack/screen-reader labels (Thai + English strings) and works with system font scaling up to 200%.

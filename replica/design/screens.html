@@ -1,0 +1,138 @@
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AutoCut screens</title><link rel="stylesheet" href="tokens.css">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#050507;color:var(--c-text);font:var(--fw-body) var(--fs-body)/var(--lh-body) var(--font-sans);padding:24px;display:flex;gap:24px;flex-wrap:wrap;justify-content:center}
+.phone{width:360px;height:740px;background:var(--c-bg);border-radius:32px;border:1px solid var(--c-border);overflow:hidden;display:flex;flex-direction:column;position:relative}
+.cap{position:absolute;top:-0px}
+.top{height:var(--l-header);display:flex;align-items:center;gap:8px;padding:0 var(--l-screen-gutter);flex:none}
+.top h1{font-size:var(--fs-title);line-height:var(--lh-title);font-weight:600;margin:0;flex:1}
+svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ib{width:48px;height:48px;border-radius:var(--r-pill);display:grid;place-items:center;border:0;background:none;color:var(--c-text)}
+.btn{min-height:48px;padding:0 20px;border-radius:var(--r-pill);border:0;font:inherit;font-weight:600;background:var(--c-accent);color:var(--c-on-accent);display:inline-flex;align-items:center;gap:8px;justify-content:center}
+.btn.sec{background:var(--c-surface-high);color:var(--c-text)}
+.btn.block{width:100%}
+.body{flex:1;overflow:hidden;padding:0 var(--l-screen-gutter)}
+.lbl{font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--c-text-muted);font-weight:600;letter-spacing:.02em;margin:16px 0 8px}
+.card{background:var(--c-surface-raised);border-radius:var(--r-lg);padding:16px}
+.hero{background:linear-gradient(160deg,var(--c-accent-soft),var(--c-surface-raised));border-radius:var(--r-xl);padding:20px;border:1px solid var(--c-border)}
+.hero h2{margin:8px 0 4px;font-size:var(--fs-headline);line-height:var(--lh-headline);font-weight:700}
+.hero p{margin:0 0 16px;color:var(--c-text-muted)}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.proj{background:var(--c-surface);border-radius:var(--r-md);overflow:hidden;border:1px solid var(--c-border)}
+.proj .th{aspect-ratio:9/12;background:linear-gradient(135deg,#25375a,#14161a)}
+.proj div.m{padding:8px 12px;font-size:var(--fs-label);font-weight:600}
+.proj small{display:block;color:var(--c-text-muted);font-weight:400;font-size:var(--fs-caption)}
+.nav{height:var(--l-toolbar);display:flex;background:var(--c-surface);border-top:1px solid var(--c-border);flex:none;padding-bottom:8px}
+.nav a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:var(--fs-caption);color:var(--c-text-muted);font-weight:600}
+.nav a.on{color:var(--c-accent)}
+.preview{margin:0 auto;height:210px;aspect-ratio:9/16;background:linear-gradient(160deg,#25375a,#0b0c0f);border-radius:var(--r-md);position:relative;display:grid;place-items:center}
+.pp{width:56px;height:56px;border-radius:50%;background:rgba(0,0,0,.55);display:grid;place-items:center}
+.tl{background:var(--c-surface);border-radius:var(--r-lg) var(--r-lg) 0 0;padding:8px 0 0;position:relative;flex:none}
+.ruler{height:var(--l-ruler);display:flex;font-size:var(--fs-caption);color:var(--c-text-muted);padding:0 16px;gap:44px;align-items:center}
+.lane{position:relative;padding:4px 16px}
+.row{display:flex;gap:3px;height:var(--l-timeline-row)}
+.slot{border-radius:var(--r-sm);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:var(--fs-caption);font-weight:600;position:relative;min-width:var(--l-slot-min-width)}
+.slot.f{background:var(--c-slot-filled)}
+.slot.e{background:var(--c-slot-empty-fill);border:2px dashed var(--c-slot-empty-border);color:var(--c-text-muted)}
+.slot.s{outline:2px solid var(--c-slot-selected);outline-offset:1px}
+.slot.s::before,.slot.s::after{content:"";position:absolute;top:10px;bottom:10px;width:5px;border-radius:3px;background:var(--c-slot-selected)}
+.slot.s::before{left:4px}.slot.s::after{right:4px}
+.beats{position:absolute;left:16px;right:16px;top:4px;bottom:4px;pointer-events:none}.beats i{position:absolute;top:0;bottom:0;width:2px;background:var(--c-beat-marker);opacity:.75}
+.ph{position:absolute;top:0;bottom:0;left:44%;width:2px;background:var(--c-playhead)}
+.ph::before{content:"";position:absolute;top:0;left:-5px;width:12px;height:12px;background:var(--c-playhead);border-radius:3px}
+.wave{height:32px;margin:6px 16px 0;border-radius:var(--r-sm);background:repeating-linear-gradient(90deg,var(--c-track-audio) 0 2px,transparent 2px 5px);opacity:.7;-webkit-mask:linear-gradient(0deg,#000 40%,transparent 41%,transparent 59%,#000 60%)}
+.tools{height:var(--l-toolbar);display:flex;gap:4px;padding:0 8px 8px;background:var(--c-surface);align-items:center}
+.tools a{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:var(--fs-caption);color:var(--c-text);min-height:48px;justify-content:center}
+.chips{display:flex;gap:8px;padding:8px 16px;background:var(--c-surface)}
+.chip{height:40px;padding:0 14px;border-radius:var(--r-pill);display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-label);font-weight:600;background:var(--c-surface-high);color:var(--c-text)}
+.chip.on{background:var(--c-accent-soft);color:var(--c-accent);outline:1px solid var(--c-accent)}
+.stage{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--c-border)}
+.stage:last-child{border:0}.stage b{flex:1;font-weight:600}.stage span{color:var(--c-text-muted);font-size:var(--fs-label)}
+.bar{height:8px;border-radius:4px;background:var(--c-surface-high);margin:12px 0}.bar i{display:block;height:100%;width:62%;background:var(--c-accent);border-radius:4px}
+.ok{color:var(--c-success)}.run{color:var(--c-accent)}
+.warn{display:flex;gap:12px;background:var(--c-surface-raised);border-left:4px solid var(--c-warning);border-radius:var(--r-md);padding:12px}
+.sheet{background:var(--c-surface-raised);border-radius:var(--r-xl) var(--r-xl) 0 0;box-shadow:var(--el-3);padding:8px 16px 16px;flex:none}
+.grab{width:36px;height:4px;border-radius:2px;background:var(--c-border-input);margin:4px auto 12px}
+.title{position:absolute;left:0;right:0;bottom:-26px;text-align:center;color:#8a93a5;font-size:12px}
+.wrap{position:relative;padding-bottom:30px}
+</style></head><body>
+<svg width="0" height="0" style="position:absolute"><defs>
+<symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="sparkles" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 3v4M21 5h-4"/></symbol>
+<symbol id="home" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></symbol>
+<symbol id="film" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 3v18M17 3v18M3 8h4M17 8h4M3 16h4M17 16h4"/></symbol>
+<symbol id="gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+<symbol id="back" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></symbol>
+<symbol id="play" viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></symbol>
+<symbol id="music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol>
+<symbol id="type" viewBox="0 0 24 24"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></symbol>
+<symbol id="wand" viewBox="0 0 24 24"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8L19 13M17.8 6.2L19 5M3 21l9-9M12.2 6.2L11 5"/></symbol>
+<symbol id="scissors" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.1 15.9M14.5 14.5L20 20M8.1 8.1L12 12"/></symbol>
+<symbol id="check" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></symbol>
+<symbol id="loader" viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></symbol>
+<symbol id="upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></symbol>
+<symbol id="alert" viewBox="0 0 24 24"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01"/></symbol>
+<symbol id="magnet" viewBox="0 0 24 24"><path d="M6 15A6 6 0 0 0 18 15V3h-4v12a2 2 0 0 1-4 0V3H6zM6 8h4M14 8h4"/></symbol>
+<symbol id="ripple" viewBox="0 0 24 24"><path d="M3 12h4M17 12h4M12 3v4M12 17v4"/><circle cx="12" cy="12" r="3"/></symbol>
+</defs></svg>
+
+<div class="wrap"><div class="phone">
+ <div class="top"><h1>AutoCut</h1><button class="ib" aria-label="Settings"><svg><use href="#gear"/></svg></button></div>
+ <div class="body">
+  <div class="hero"><svg style="color:var(--c-accent)"><use href="#sparkles"/></svg>
+   <h2>ตัดตามคลิปต้นแบบ</h2><p>โยนคลิปที่อยากตัดตาม แล้วให้เราวางโครงร่างให้</p>
+   <button class="btn block"><svg><use href="#wand"/></svg>เริ่ม Auto Cut</button></div>
+  <button class="btn sec block" style="margin-top:8px"><svg><use href="#plus"/></svg>ตัดต่อแบบปกติ</button>
+  <div class="lbl">โปรเจกต์ล่าสุด</div>
+  <div class="grid"><div class="proj"><div class="th"></div><div class="m">คลิปเที่ยวทะเล<small>6 สล็อต · 0:24</small></div></div>
+  <div class="proj"><div class="th" style="background:linear-gradient(135deg,#3a2a5c,#14161a)"></div><div class="m">รีวิวสินค้า<small>เหลือ 3 ช่องว่าง</small></div></div></div>
+ </div>
+ <nav class="nav"><a class="on"><svg><use href="#home"/></svg>หน้าแรก</a><a><svg><use href="#film"/></svg>โปรเจกต์</a><a><svg><use href="#gear"/></svg>ตั้งค่า</a></nav>
+</div><div class="title">S01 หน้าแรก</div></div>
+
+<div class="wrap"><div class="phone">
+ <div class="top"><button class="ib" aria-label="Back"><svg><use href="#back"/></svg></button><h1>กำลังวิเคราะห์</h1></div>
+ <div class="body">
+  <div class="card"><b>จังหวะเพลง</b><div class="bar"><i></i></div><span style="color:var(--c-text-muted);font-size:var(--fs-label)">62% · เหลือประมาณ 20 วินาที</span></div>
+  <div class="lbl">ขั้นตอน</div>
+  <div class="card" style="padding:4px 16px">
+   <div class="stage"><svg class="ok"><use href="#check"/></svg><b>ตรวจจับฉาก</b><span>14 ฉาก</span></div>
+   <div class="stage"><svg class="run"><use href="#loader"/></svg><b>จังหวะเพลง</b><span>กำลังทำ</span></div>
+   <div class="stage"><svg style="color:var(--c-text-muted)"><use href="#loader"/></svg><b>เอฟเฟกต์</b><span>รอ</span></div>
+   <div class="stage"><svg style="color:var(--c-text-muted)"><use href="#loader"/></svg><b>ข้อความบนจอ</b><span>รอ</span></div>
+   <div class="stage"><svg style="color:var(--c-text-muted)"><use href="#loader"/></svg><b>เสียงพูด (ไทย/อังกฤษ)</b><span>รอ</span></div></div>
+  <div class="warn" style="margin-top:16px"><svg style="color:var(--c-warning)"><use href="#alert"/></svg><span>ปิดหน้าจอได้ ระบบจะทำต่อเมื่อเปิดแอปอีกครั้ง</span></div>
+ </div>
+ <div style="padding:16px"><button class="btn sec block">ยกเลิก</button></div>
+</div><div class="title">S04 วิเคราะห์</div></div>
+
+<div class="wrap"><div class="phone">
+ <div class="top"><button class="ib" aria-label="Back"><svg><use href="#back"/></svg></button><h1>โครงร่าง · 7 ฉาก</h1></div>
+ <div class="body">
+  <div class="warn"><svg style="color:var(--c-warning)"><use href="#alert"/></svg><span>คุณมี 1 รูป แต่ต้นแบบใช้ 7 ฉาก เติมช่องว่างทีหลังได้ ลากปรับความยาวได้ทุกช่อง</span></div>
+  <div class="lbl">ฉาก</div>
+  <div style="display:grid;gap:8px">
+   <div class="card" style="display:flex;gap:12px;align-items:center;padding:12px"><div style="width:48px;height:64px;border-radius:8px;background:var(--c-slot-filled)"></div><div style="flex:1"><b>ฉาก 1</b><br><span style="color:var(--c-text-muted);font-size:var(--fs-label)">2.4 วิ · ใส่รูปแล้ว</span></div><svg class="ok"><use href="#check"/></svg></div>
+   <div class="card" style="display:flex;gap:12px;align-items:center;padding:12px;border:2px dashed var(--c-slot-empty-border);background:var(--c-slot-empty-fill)"><div style="width:48px;height:64px;border-radius:8px;border:2px dashed var(--c-slot-empty-border);display:grid;place-items:center"><svg style="color:var(--c-text-muted)"><use href="#plus"/></svg></div><div style="flex:1"><b>ฉาก 2 ว่าง</b><br><span style="color:var(--c-text-muted);font-size:var(--fs-label)">1.6 วิ · ซูมเข้า</span></div><button class="btn sec" style="min-height:48px">เติม</button></div>
+   <div class="card" style="display:flex;gap:12px;align-items:center;padding:12px;border:2px dashed var(--c-slot-empty-border);background:var(--c-slot-empty-fill)"><div style="width:48px;height:64px;border-radius:8px;border:2px dashed var(--c-slot-empty-border);display:grid;place-items:center"><svg style="color:var(--c-text-muted)"><use href="#plus"/></svg></div><div style="flex:1"><b>ฉาก 3 ว่าง</b><br><span style="color:var(--c-text-muted);font-size:var(--fs-label)">0.8 วิ · ตัดตามบีต</span></div><button class="btn sec">เติม</button></div>
+  </div>
+ </div>
+ <div style="padding:16px;display:grid;gap:8px"><button class="btn block"><svg><use href="#film"/></svg>เปิดในตัวตัดต่อ</button></div>
+</div><div class="title">S05 ตรวจโครงร่าง</div></div>
+
+<div class="wrap"><div class="phone">
+ <div class="top"><button class="ib" aria-label="Back"><svg><use href="#back"/></svg></button><h1>ทะเล 9:16</h1><button class="btn" style="min-height:40px;padding:0 16px"><svg style="width:20px;height:20px"><use href="#upload"/></svg>ส่งออก</button></div>
+ <div style="flex:1;display:grid;place-items:center;min-height:0"><div class="preview"><div class="pp"><svg><use href="#play"/></svg></div></div></div>
+ <div class="chips"><span class="chip on"><svg style="width:20px;height:20px"><use href="#magnet"/></svg>ดูดบีต</span><span class="chip"><svg style="width:20px;height:20px"><use href="#ripple"/></svg>เลื่อนตาม</span></div>
+ <div class="tl"><div class="ruler"><span>0:00</span><span>0:02</span><span>0:04</span></div>
+  <div class="lane"><div class="row">
+   <div class="slot f" style="flex:3">1<span style="font-weight:400">2.4s</span></div>
+   <div class="slot f s" style="flex:2">2<span style="font-weight:400">1.6s</span></div>
+   <div class="slot e" style="flex:3"><svg style="width:20px;height:20px"><use href="#plus"/></svg>3</div>
+   <div class="slot e" style="flex:2"><svg style="width:20px;height:20px"><use href="#plus"/></svg>4</div></div>
+   <div class="beats"><i style="left:14%"></i><i style="left:29%"></i><i style="left:44%"></i><i style="left:59%"></i><i style="left:74%"></i><i style="left:89%"></i></div><div class="ph"></div></div>
+  <div class="wave"></div><div style="height:8px"></div></div>
+ <div class="tools"><a><svg><use href="#scissors"/></svg>แบ่ง</a><a><svg><use href="#wand"/></svg>เอฟเฟกต์</a><a><svg><use href="#music"/></svg>เสียง</a><a><svg><use href="#type"/></svg>ข้อความ</a><a><svg><use href="#plus"/></svg>เพิ่ม</a></div>
+</div><div class="title">S06 ไทม์ไลน์</div></div>
+</body></html>
