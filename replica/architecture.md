@@ -61,5 +61,5 @@ Matching media to slots (the "smart" bit): score by aspect fit, duration >= slot
 
 ## 7. Decisions (answered by the user)
 - Android minimum: API 26+, 4GB RAM recommended. Devices below that use the web PWA instead (so the web app must stay usable, with lighter analysis settings).
-- First-run model download: explained to the user, answer pending (see chat); default assumption = download once on Wi-Fi, then offline.
+- First-run model download: explained to the user, confirmed by the user: option 1, download once (Wi-Fi recommended), then offline.
 - Slice 1 is Android first, web second.

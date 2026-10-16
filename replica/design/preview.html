@@ -1,0 +1,32 @@
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html{overflow-x:hidden}</style>
+<title>Design check</title><link rel="stylesheet" href="tokens.css">
+<style>
+body{margin:0;background:var(--c-bg);color:var(--c-text);font:var(--fw-base) var(--fs-base)/var(--lh-base) var(--font-sans);padding:var(--sp-4)}
+h2{font-size:var(--fs-sm);color:var(--c-text-muted);margin:var(--sp-5) 0 var(--sp-2);font-weight:600}
+.btn{margin:0!important;min-height:48px;padding:0 var(--sp-5);border-radius:var(--r-md);border:0;font:inherit;font-weight:600;background:var(--c-accent);color:var(--c-on-accent);margin-right:var(--sp-2)}
+.btn.sec{background:var(--c-surface-raised);color:var(--c-text)}.btn.ghost{background:none;color:var(--c-accent)}.btn.dng{background:var(--c-danger);color:#1a0505}
+.btn:focus-visible{outline:2px solid var(--c-accent);outline-offset:2px}.btn:disabled{opacity:.4}
+.lane{background:var(--c-surface);border-radius:var(--r-md);padding:var(--sp-3);position:relative;overflow:hidden}
+.row{display:flex;gap:2px;height:var(--l-timeline-row)}
+.slot{border-radius:var(--r-sm);min-width:24px;display:flex;align-items:center;justify-content:center;font-size:var(--fs-xs);position:relative}
+.slot.empty{border:2px dashed var(--c-slot-empty-border);color:var(--c-text-muted)}
+.slot.filled{background:var(--c-slot-filled)}
+.slot.sel{border:2px solid var(--c-slot-selected)}
+.slot.sel::before,.slot.sel::after{content:"";position:absolute;top:8px;bottom:8px;width:6px;border-radius:3px;background:var(--c-slot-selected)}
+.slot.sel::before{left:2px}.slot.sel::after{right:2px}
+.beats{position:absolute;inset:var(--sp-3) 0;pointer-events:none}.beats i{position:absolute;top:0;bottom:0;width:2px;background:var(--c-beat-marker);opacity:.8}
+.playhead{position:absolute;top:0;bottom:0;left:46%;width:2px;background:var(--c-playhead)}
+.card{background:var(--c-surface-raised);border-radius:var(--r-lg);padding:var(--sp-4);box-shadow:var(--sh-card)}
+.bar{height:8px;border-radius:4px;background:var(--c-border);margin:var(--sp-2) 0}.bar b{display:block;height:100%;width:60%;border-radius:4px;background:var(--c-accent)}
+input{width:100%;box-sizing:border-box;min-height:48px;border-radius:var(--r-md);background:var(--c-surface);color:var(--c-text);border:1px solid var(--c-border-input);padding:0 var(--sp-3);font:inherit}
+.err{color:var(--c-danger);font-size:var(--fs-sm)}
+</style></head><body>
+<h2>Buttons</h2><div style="display:flex;flex-wrap:wrap;gap:8px"><button class="btn">เริ่ม Auto Cut</button><button class="btn sec">นำเข้า</button><button class="btn ghost">ข้าม</button><button class="btn dng">ลบ</button><button class="btn" disabled>Disabled</button></div>
+<h2>Timeline: empty, filled and selected slots, beats, playhead</h2>
+<div class="lane"><div class="row">
+<div class="slot filled" style="flex:3">1 · 2.4s</div><div class="slot filled sel" style="flex:2">2 · 1.6s</div>
+<div class="slot empty" style="flex:4">＋ ว่าง 3</div><div class="slot empty" style="flex:2">＋ ว่าง 4</div><div class="slot filled" style="flex:3">5</div></div>
+<div class="beats"><i style="left:15%"></i><i style="left:30%"></i><i style="left:45%"></i><i style="left:60%"></i><i style="left:75%"></i></div><div class="playhead"></div></div>
+<h2>Analysis progress</h2><div class="card"><b>กำลังวิเคราะห์… จังหวะเพลง</b><div class="bar"><b></b></div><span style="color:var(--c-text-muted);font-size:var(--fs-sm)">ฉาก ✓ · จังหวะ … · เอฟเฟกต์ · ข้อความ · เสียงพูด</span></div>
+<h2>Text field with error</h2><input value="ชื่อโปรเจกต์"><p class="err">ชื่อซ้ำ Name already used</p>
+</body></html>
