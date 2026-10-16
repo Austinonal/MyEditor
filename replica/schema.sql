@@ -17,6 +17,7 @@ create index media_hash on media (hash);
 create table project (
   id text primary key,
   name text not null,
+  kind text not null default 'video' check (kind in ('video','thumbnail')),  -- tool that made it; future thumbnail tool
   aspect text not null default '9:16' check (aspect in ('9:16','1:1','4:5','16:9')),
   fps integer not null default 30 check (fps in (24,25,30,60)),
   reference_id text references reference(id) on delete set null,

@@ -47,3 +47,6 @@ Noise removal and vocal separator,manual edit,could,yes,no,KineMaster
 Motion tracking for text/stickers,manual edit,could,yes,no,KineMaster/CapCut
 Speed 0.1x-100x with curves and freeze,manual edit,should,yes,no,CapCut
 Video stabilization,manual edit,could,yes,no,CapCut
+Home as tool launcher (Auto Cut / manual edit / thumbnail),home,must,no,no,user: home must make room for future tools
+Thumbnail tool auto-layout from reference cover,thumbnail,could,no,no,future; shown as "coming soon" tile
+Project list filter by kind (all / video / thumbnail),projects,should,no,no,project.kind column
