@@ -36,6 +36,9 @@ export interface Slot {
   out: Guess | null;
   combo: Guess | null;
   dissolve: number | null; // seconds of a cross-dissolve from the slot before into this one
+  change?: { from: number; to: number } | null; // seconds: where the picture was changing into this slot (a gradual transition)
+  transition?: { presetId: string; seconds: number } | null; // how the slot before turns into this one (transitions.ts)
+  texts?: import('./layout.ts').TextSpot[]; // words on screen during this slot, read off the reference
 }
 
 export function features(rgba: Uint8ClampedArray | Uint8Array, w: number, h: number, t: number): Frame {
@@ -466,14 +469,65 @@ export function detectDissolves(f: Frame[], fps: number): Dissolve[] {
   return out;
 }
 
+// Layout-only difference (brightness and colour balance ignored).
+function layoutDiff(a: Frame, b: Frame) {
+  if (flat(a.thumb) || flat(b.thumb)) return flat(a.thumb) && flat(b.thumb) ? 0 : 1;
+  const na = normalise(a.thumb);
+  const nb = normalise(b.thumb);
+  let d = 0;
+  for (let i = 0; i < na.length; i++) d += Math.abs(na[i] - nb[i]);
+  return d / na.length / 2;
+}
+
+// Gradual transitions that are not dissolves (wipes, slides, circles, zooms, fades through black or white): over
+// about half a second the picture becomes a different one, with a steady picture on both sides. No single step is sudden
+// enough for the cut detector, or it fires once somewhere inside. `known` frames already split there.
+export function detectGradual(f: Frame[], fps: number, known: number[]): Dissolve[] {
+  const k = Math.max(2, Math.round(fps * 0.3));
+  const s = Math.max(1, Math.round(fps * 0.15));
+  const D = f.map((_, i) => (i - k - s >= 0 && i + k + s < f.length ? change(f[i - k], f[i + k]) : 0));
+  const out: Dissolve[] = [];
+  for (let i = k + s; i + k + s < f.length; i++) {
+    const d = D[i];
+    if (d < 0.35) continue;
+    if (D.slice(i - k, i + k + 1).some((x, j) => x > d || (x === d && j < k))) continue; // the strongest point of the change
+    if (change(f[i - k - s], f[i - k]) > 0.3 * d || change(f[i + k], f[i + k + s]) > 0.3 * d) continue; // steady on both sides
+    if (known.some((c) => c >= i - k - 1 && c <= i + k + 1)) continue;
+    // A different picture brings different colours; a spin or zoom of the same picture keeps them.
+    if (histDiff(f[i - k - s], f[i + k + s]) < 0.15) continue;
+    // The ends: the last frame still like the first picture, the first already like the next.
+    const A = f[i - k - s];
+    const B = f[i + k + s];
+    let from = i - k;
+    while (from < i && layoutDiff(f[from + 1], A) < 0.12) from++;
+    let to = i + k;
+    while (to > i && layoutDiff(f[to - 1], B) < 0.12) to--;
+    if (to - from <= 2) continue; // it all happened in a frame or two: a plain cut, the cut detector's job
+    let jump = 0;
+    for (let j = Math.max(1, from); j <= Math.min(f.length - 1, to + 1); j++) jump = Math.max(jump, change(f[j - 1], f[j]));
+    if (jump > 0.6 * change(A, B)) continue; // one step carries most of the change: a cut next to some motion
+    let at = i;
+    let best = Infinity;
+    for (let j = from; j <= to; j++) {
+      const e = Math.abs(change(f[j], A) - change(f[j], B));
+      if (e < best) [best, at] = [e, j];
+    }
+    out.push({ from, at, to });
+    i += k;
+  }
+  return out;
+}
+
 // `motions[i]` is the motion from frame i to i + 1 (pairs across a cut are ignored). `end` is the video's length.
 export function buildTemplate(f: Frame[], motions: Motion[], end: number): Slot[] {
   if (f.length === 0) return [];
   const t0 = f[0].t;
   const fpsAll = f.length > 1 ? (f.length - 1) / Math.max(1e-6, f[f.length - 1].t - t0) : 30;
   const dissolves = detectDissolves(f, fpsAll);
-  const cuts = detectCuts(f).filter((c) => !dissolves.some((d) => c >= d.from - 2 && c <= d.to + 2));
-  const bounds = [0, ...[...cuts, ...dissolves.map((d) => d.at)].sort((x, y) => x - y), f.length];
+  const gradual = detectGradual(f, fpsAll, dissolves.map((d) => d.at));
+  const inside = (c: number, d: Dissolve) => c >= d.from - 2 && c <= d.to + 2;
+  const cuts = detectCuts(f).filter((c) => !dissolves.some((d) => inside(c, d)) && !gradual.some((d) => inside(c, d)));
+  const bounds = [0, ...[...cuts, ...dissolves.map((d) => d.at), ...gradual.map((d) => d.at)].sort((x, y) => x - y), f.length];
   const slots: Slot[] = [];
   for (let k = 0; k + 1 < bounds.length; k++) {
     const a = bounds[k];
@@ -487,12 +541,16 @@ export function buildTemplate(f: Frame[], motions: Motion[], end: number): Slot[
     // A dissolve becomes a real transition between the two slots; the mixed frames are not read as In / Out effects.
     const dIn = dissolves.find((d) => d.at === a);
     const dOut = dissolves.find((d) => d.at === b);
-    const inG = dIn ? null : shot.length >= 3 ? guessEnd('in', shot, ms, fps) : null;
-    const outG = dOut ? null : shot.length >= 3 ? guessEnd('out', shot, ms, fps) : null;
+    const gIn = gradual.find((d) => d.at === a);
+    const gOut = gradual.find((d) => d.at === b);
+    // Frames of a gradual transition belong to the transition, not to the shots' own In / Out.
+    const inG = dIn || gIn ? null : shot.length >= 3 ? guessEnd('in', shot, ms, fps) : null;
+    const outG = dOut || gOut ? null : shot.length >= 3 ? guessEnd('out', shot, ms, fps) : null;
     const combo = inG || outG ? null : guessCombo(shot, ms, fps, seconds);
     const cap = (g: Guess | null, share: number) => g && { ...g, seconds: Math.min(g.seconds, seconds * share) };
     const dissolve = dIn ? (dIn.to - dIn.from + 1) / fps : null;
-    slots.push({ start, seconds, in: cap(inG, outG ? 0.5 : 0.9), out: cap(outG, inG ? 0.5 : 0.9), combo: dIn || dOut ? null : combo, dissolve });
+    const change = gIn ? { from: f[gIn.from].t - t0, to: f[gIn.to].t - t0 } : dIn ? { from: f[dIn.from].t - t0, to: f[dIn.to].t - t0 } : null;
+    slots.push({ start, seconds, in: cap(inG, outG ? 0.5 : 0.9), out: cap(outG, inG ? 0.5 : 0.9), combo: dIn || dOut || gIn || gOut ? null : combo, dissolve, change });
   }
   return slots;
 }

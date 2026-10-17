@@ -138,6 +138,19 @@ export async function analyzeThumbnail(file: File, onStatus: (s: string) => void
   return { aspect, person: persons[0] ?? (alpha && personBox(alpha, W, H)), texts, spots: [...spots, ...graphics] };
 }
 
+// The words on screen in one picture (a frame of a reference video): spots that read as text, best first.
+export async function readTextIn(bmp: ImageBitmap, limit = 6): Promise<TextSpot[]> {
+  const small = pixels(bmp, 480);
+  const w = await ocr();
+  const out: TextSpot[] = [];
+  for (const s of findText(small.rgba, small.W, small.H, null, 16)) {
+    const r = await read(w, bmp, s);
+    if (r) out.push(s.background ? { ...s, text: r.text } : r);
+    if (out.length === limit) break;
+  }
+  return out;
+}
+
 const ASPECTS: [Aspect, number][] = [['9:16', 9 / 16], ['3:4', 3 / 4], ['4:5', 4 / 5], ['1:1', 1], ['4:3', 4 / 3], ['16:9', 16 / 9], ['2:1', 2]];
 const nearest = (r: number) => ASPECTS.reduce((b, a) => (Math.abs(Math.log(r / a[1])) < Math.abs(Math.log(r / b[1])) ? a : b))[0];
 

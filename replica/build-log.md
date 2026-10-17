@@ -1,5 +1,18 @@
 # Build log
 
+## 2026-10-17 — reading references much better: many objects in thumbnails, transitions and on-screen text in clips
+
+| ID | status | missing | harder than expected |
+| --- | --- | --- | --- |
+| Thumbnail reference | better | real photos of busy thumbnails not measured (made-up one only); COCO has no burger, so some objects get no name | photo insets split into flat patches looked like stickers; graphics now must be one flat colour |
+| Clip reference (template) | better | circle transitions read as dissolves; beat alignment of joins not done | slides and wipes were missed or read as cuts; one-frame cuts next to motion looked gradual |
+
+- **Thumbnail**: every person (separate parts of the cutout mask, split by faces when two stand close), everyday objects (EfficientDet-Lite2, 7.5 MB, bundled), flat graphics (stickers, arrows, emoji, rings, badges) and up to 12 texts read at 480 px. Each becomes its own empty slot, shaped like it and named ("ช่องคน", "ช่องรูป: แมว", "ช่องสติกเกอร์"), stacked objects < people < stickers. Empty slots now have a dashed edge.
+  - Made-up busy thumbnail (`scripts/thumb-check.mjs`): before 4 things found (one box around both people + 3 texts); now 10 of 11 (2 people, cat, food, arrow, emoji, ring, 3 texts), 0 false finds, about 2.5 s.
+- **Clip reference**: gradual changes (wipes, slides, shapes, fades) are found as joins; every join is then looked at frame by frame and named (dissolve, through black, through white or flash, wipe, circle, slide in 4 directions) and becomes that real transition; the join moves to the middle of it. Words on screen are read twice per slot and become text layers; the same words over neighbouring slots are one layer.
+  - Made-up 8-shot edit with known answers (`scripts/make-reference.py`, `scripts/autocut-check.mjs`): joins 5/7 → 7/7, transition type 2/7 → 6/7, words on screen 0/3 → 2/3, no false joins. Join times within 0.08 s of the middle of each transition (was up to 0.19 s early).
+- Checked: 105 unit tests, both flows end to end in the app (`scripts/thumb-ui.mjs`, `scripts/autocut-ui.mjs`), zero page errors.
+
 Parity after each milestone comes from `python3 .claude/skills/replica-diff/parity.py replica/features.csv`.
 
 ## 2026-10-13 — thumbnails: layer order, stickers, PNG; reading the reference better (parity 84.4, must-haves 33 of 34)

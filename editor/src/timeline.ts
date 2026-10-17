@@ -1,7 +1,8 @@
 import { SCHEMA_VERSION, type Adjust, type Aspect, type Easing, type EffectClip, type Grade, type Voice, type AudioClip, type Clip, type MediaAsset, type MediaClip, type Project, type TextClip, type TextStyle, type Transform, type Us } from './schema.ts';
 import { CURVE_CHANNELS, HSL_COLOURS, WHEELS, neutralGrade } from './grade.ts';
 import { KEY_PROPS, setEasing, setKeys, toggleKey, transformAt } from './keyframes.ts';
-import type { Layout } from './layout.ts';
+import type { Layout, TextSpot } from './layout.ts';
+import { TRANSITIONS } from './transitions.ts';
 import { scaleForBox } from './objects.ts';
 import type { TextTemplate } from './textTemplates.ts';
 import type { Chroma } from './chroma.ts';
@@ -211,6 +212,8 @@ export interface TemplateSlot {
   out: { presetId: string; seconds: number } | null;
   combo: { presetId: string; seconds: number } | null;
   dissolve?: number | null; // seconds of a cross-dissolve from the slot before
+  transition?: { presetId: string; seconds: number } | null; // how the slot before turns into this one
+  texts?: TextSpot[]; // words on screen during the slot
 }
 
 // Gives the main track the template's rhythm: your clips fill the first slots in order, empty slots get the placeholder,
@@ -238,13 +241,51 @@ export function applyTemplate(p: Project, slots: TemplateSlot[], placeholder: Me
   normalize(p);
   dropEmptyTracks(p);
   slots.forEach((s, i) => {
-    if (!s.dissolve || i === 0) return;
+    const tr = s.transition ?? (s.dissolve ? { presetId: 'dissolve', seconds: s.dissolve } : null);
+    if (!tr || i === 0) return;
     try {
-      setTransition(p, filled[i - 1].id, 'dissolve', Math.round(s.dissolve * SEC));
+      setTransition(p, filled[i - 1].id, tr.presetId, Math.round(tr.seconds * SEC));
     } catch {
-      // clips too short for it: leave the cut plain
+      // clips too short for it, or a name this version does not know: leave the cut plain
     }
   });
+  // Words on screen become text layers over their slots; the same words in slots next to each other are one layer.
+  const key = (t: TextSpot) => (t.text ?? '').replace(/\s+/g, '');
+  let open: { k: string; id: string; end: Us }[] = [];
+  slots.forEach((s, i) => {
+    const c = filled[i];
+    const now: typeof open = [];
+    for (const t of s.texts ?? []) {
+      const k = key(t);
+      if (!k) continue;
+      const run = open.find((o) => o.k === k && o.end === c.start);
+      if (run) {
+        const tc = findClip(p, run.id) as TextClip;
+        tc.duration = c.start + c.duration - tc.start;
+        run.end = c.start + c.duration;
+        now.push(run);
+      } else now.push({ k, id: textFromSpot(p, t, c.start, c.duration), end: c.start + c.duration });
+    }
+    open = now;
+  });
+}
+
+// One text layer that looks like a spot read off a picture: its words, letter and outline colours, label box, size
+// (from the spot's height on a frame whose short side is 1080), place and slant.
+export function textFromSpot(p: Project, t: TextSpot, at: Us, duration: Us) {
+  const [, H] = outputSize(p.aspect, 1080);
+  const text = t.text?.trim() || 'ใส่ข้อความ';
+  // The letters' ink is about 0.9 of the font size; on a label it is about half the box's height.
+  const size = clamp(Math.round((t.h * H * (t.background ? 0.6 : 1.1)) / text.split('\n').length), 16, 240);
+  const id = addText(p, at, text, {
+    ...SUBTITLE,
+    colour: `${t.fill}ff`,
+    size,
+    stroke: t.stroke ? { colour: `${t.stroke}ff`, width: Math.max(4, Math.round(size * 0.1)) } : null,
+    background: t.background ? { colour: `${t.background}ff`, radius: 8 } : null,
+  }, duration / SEC);
+  updateText(p, id, { transform: { x: t.cx, y: t.cy, rotation: t.angle } });
+  return id;
 }
 
 // Swaps the picture or video in a main-track clip and keeps its place, length and animations.
@@ -410,6 +451,7 @@ export function setTransition(p: Project, fromClipId: string, presetId: string |
   if (i < 0 || !to) throw new Error('a transition needs a next clip');
   p.transitions = p.transitions.filter((t) => t.fromClipId !== fromClipId);
   if (!presetId) return;
+  if (!TRANSITIONS.some((t) => t.id === presetId)) throw new Error(`unknown transition ${presetId}`);
   const max = Math.floor(Math.min(main[i].duration, to.duration) / 2);
   if (max < frameUs(p)) throw new Error('these clips are too short for a transition');
   p.transitions.push({ id: crypto.randomUUID(), fromClipId, toClipId: to.id, presetId, duration: clamp(Math.round(duration), frameUs(p), max) });
@@ -757,20 +799,7 @@ export function applyLayout(p: Project, layout: Layout, reference: MediaAsset, s
       c.transform = { ...c.transform, x: s.cx, y: s.cy, scale: clamp(scale, 0.05, 4) };
       if (s.kind === 'person') c.cutout = { bg: 'clear' };
     });
-  const [, H] = outputSize(p.aspect, 1080); // text sizes are pixels on a frame whose short side is 1080
-  for (const t of layout.texts) {
-    const text = t.text?.trim() || 'ใส่ข้อความ'; // the words read off the reference, to edit
-    // The letters' ink is about 0.9 of the font size; on a label it is about half the box's height.
-    const size = clamp(Math.round((t.h * H * (t.background ? 0.6 : 1.1)) / text.split('\n').length), 16, 240);
-    const id = addText(p, 0, text, {
-      ...SUBTITLE,
-      colour: `${t.fill}ff`,
-      size,
-      stroke: t.stroke ? { colour: `${t.stroke}ff`, width: Math.max(4, Math.round(size * 0.1)) } : null,
-      background: t.background ? { colour: `${t.background}ff`, radius: 8 } : null,
-    });
-    updateText(p, id, { transform: { x: t.cx, y: t.cy, rotation: t.angle } });
-  }
+  for (const t of layout.texts) textFromSpot(p, t, 0, 3 * SEC);
 }
 
 // Many captions at once (pasted lines or a subtitle file), each looking like `like` when given.

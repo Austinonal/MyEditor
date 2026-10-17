@@ -4,6 +4,7 @@ import { edit } from '../store';
 import { importMedia } from '../media';
 import { analyzeReference } from '../reference';
 import { getPreset } from '../anim.ts';
+import { transitionById } from '../transitions';
 import { addAudio, applyTemplate, outputSize } from '../timeline.ts';
 import { importMessage } from './Home';
 import type { Slot } from '../analyze.ts';
@@ -92,7 +93,7 @@ export function TemplateSheet({ open, onClose, project, onApplied }: { open: boo
       {state.kind === 'idle' && (
         <div className="flex flex-col gap-4">
           <p className="text-sm text-muted">
-            เลือกคลิปที่ตัดต่อไว้แล้วของใครก็ได้ แอปจะหาจุดตัดและแอนิเมชันเข้า/ออก/คอมโบที่ใกล้ที่สุด แล้วจัดคลิปของคุณให้ตามจังหวะเดียวกัน ช่องที่เหลือจะเป็นช่องว่างให้ใส่รูปหรือคลิปทีหลัง
+            เลือกคลิปที่ตัดต่อไว้แล้วของใครก็ได้ แอปจะหาจุดตัด ทรานซิชัน ข้อความบนจอ และแอนิเมชันเข้า/ออก/คอมโบที่ใกล้ที่สุด แล้วจัดคลิปของคุณให้ตามจังหวะเดียวกัน ช่องที่เหลือจะเป็นช่องว่างให้ใส่รูปหรือคลิปทีหลัง
           </p>
           <p className="text-xs text-muted">ตอนนี้มีคลิปของคุณ {own.length} ชิ้น · วิเคราะห์ในเครื่อง ไม่ส่งคลิปไปไหน</p>
           <Button onClick={() => picker.current?.click()}>เลือกคลิปต้นแบบ</Button>
@@ -116,7 +117,7 @@ export function TemplateSheet({ open, onClose, project, onApplied }: { open: boo
           </p>
           <ol className="flex max-h-60 flex-col gap-1 overflow-y-auto text-xs">
             {state.slots.map((s, i) => {
-              const fx = [s.dissolve && `ซ้อนจางจากช่องก่อน ${s.dissolve.toFixed(1)} วิ`, effectName(s.in?.presetId) && `เข้า: ${effectName(s.in?.presetId)}`, effectName(s.out?.presetId) && `ออก: ${effectName(s.out?.presetId)}`, effectName(s.combo?.presetId) && `คอมโบ: ${effectName(s.combo?.presetId)}`].filter(Boolean);
+              const fx = [s.transition ? `${transitionById(s.transition.presetId).name}จากช่องก่อน ${s.transition.seconds.toFixed(1)} วิ` : s.dissolve && `ซ้อนจางจากช่องก่อน ${s.dissolve.toFixed(1)} วิ`, s.texts?.length && `ข้อความ: ${s.texts.map((t) => t.text).join(', ')}`, effectName(s.in?.presetId) && `เข้า: ${effectName(s.in?.presetId)}`, effectName(s.out?.presetId) && `ออก: ${effectName(s.out?.presetId)}`, effectName(s.combo?.presetId) && `คอมโบ: ${effectName(s.combo?.presetId)}`].filter(Boolean);
               const who = own[i] ? project.assets[own[i].assetId].name : 'ช่องว่าง';
               return (
                 <li key={i} className="flex gap-2 rounded-md bg-raised px-2 py-1">
