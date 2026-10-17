@@ -2,7 +2,7 @@ name: Editor
 
 on:
   push:
-    branches: [claude/replica-skill-setup-h2y7wf, main]
+    branches: [claude/eager-hypatia-ihv2ko, claude/replica-skill-setup-h2y7wf, main]
     paths: ['editor/**', '.github/workflows/editor.yml']
   workflow_dispatch:
 
