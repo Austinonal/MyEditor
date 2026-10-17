@@ -32,6 +32,10 @@ export async function placeholderFile(aspect: Aspect): Promise<File> {
   ctx.moveTo(w / 2, h / 2 - w / 8);
   ctx.lineTo(w / 2, h / 2 + w / 8);
   ctx.stroke();
+  // A dashed edge, so each empty slot reads as its own box even over another one or an empty background.
+  ctx.lineWidth = Math.max(4, Math.min(w, h) / 40);
+  ctx.setLineDash([ctx.lineWidth * 3, ctx.lineWidth * 2]);
+  ctx.strokeRect(ctx.lineWidth / 2, ctx.lineWidth / 2, w - ctx.lineWidth, h - ctx.lineWidth);
   return new File([await c.convertToBlob({ type: 'image/png' })], 'ช่องว่าง.png', { type: 'image/png' });
 }
 

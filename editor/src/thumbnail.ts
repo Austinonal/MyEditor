@@ -1,10 +1,12 @@
 // Thumbnails: reading a reference picture's layout on the device, and the assets a layout needs.
 import { createWorker, PSM, type Worker } from 'tesseract.js';
-import { findText, nearestAspect, personBox, type Layout, type TextSpot } from './layout.ts';
+import { findText, nearestAspect, personBox, type Box, type Layout, type TextSpot } from './layout.ts';
+import { findGraphics, inside, mergeDetections, peopleBoxes, splitByFaces, type Spot } from './objects.ts';
+import { detectFaces, detectObjects, thaiLabel } from './detect';
 import { loadSegmenter, personMask } from './segment';
 import { importMedia } from './media';
 import { placeholderFile } from './screens/TemplateSheet';
-import type { MediaAsset } from './schema';
+import type { Aspect, MediaAsset } from './schema';
 
 // Text reading (Thai and English) ships with the app in public/ocr (scripts/ocr.mjs), so it works offline.
 let reader: Promise<Worker> | null = null;
@@ -76,19 +78,24 @@ async function read(w: Worker, img: ImageBitmap, s: TextSpot) {
   };
 }
 
-// Where the reference's person and big text are, the text's colours, slant and words, from a 320-pixel-wide copy.
-// Each text candidate is read; one that reads as nothing is a busy patch, not text, and is dropped. That also lets text
-// over the person count. Without the reader (it failed to load) candidates on the person are dropped instead.
+const pixels = (bmp: ImageBitmap, W: number) => {
+  const H = Math.max(2, Math.round((W * bmp.height) / bmp.width));
+  const ctx = new OffscreenCanvas(W, H).getContext('2d', { willReadFrequently: true })!;
+  ctx.drawImage(bmp, 0, 0, W, H);
+  return { ctx, W, H, rgba: ctx.getImageData(0, 0, W, H).data };
+};
+const grow = (b: Box, k: number): Box => ({ ...b, w: b.w * k, h: b.h * k });
+
+// Everything the reference shows, from small copies: every person (the cutout mask, split by faces when two stand
+// close), everyday objects (the detector), flat graphics (stickers, arrows, emoji, badges), and the text, read and
+// coloured. Text candidates are read; one that reads as nothing is a busy patch and is dropped, so text over a person
+// still counts. A detector that fails to load only means fewer kinds of spots.
 export async function analyzeThumbnail(file: File, onStatus: (s: string) => void = () => {}): Promise<Layout> {
   onStatus('กำลังหาคนในรูป…');
   await loadSegmenter();
   const bmp = await createImageBitmap(file);
-  const W = 320;
-  const H = Math.max(2, Math.round((W * bmp.height) / bmp.width));
   const aspect = nearestAspect(bmp.width, bmp.height);
-  const ctx = new OffscreenCanvas(W, H).getContext('2d', { willReadFrequently: true })!;
-  ctx.drawImage(bmp, 0, 0, W, H);
-  const rgba = ctx.getImageData(0, 0, W, H).data;
+  const { ctx, W, H } = pixels(bmp, 320);
   const mask = personMask(ctx.canvas, W, H, `reference|${crypto.randomUUID()}`);
   let alpha: Uint8Array | null = null;
   if (mask) {
@@ -97,30 +104,57 @@ export async function analyzeThumbnail(file: File, onStatus: (s: string) => void
     const d = m.getImageData(0, 0, W, H).data;
     alpha = Uint8Array.from({ length: W * H }, (_, i) => d[i * 4 + 3]);
   }
+  const big = pixels(bmp, 640); // the detectors see more at this size; small text needs it too
+  onStatus('กำลังหาสิ่งของและใบหน้าในรูป…');
+  const [faces, found] = await Promise.all([
+    detectFaces(big.ctx.canvas, big.W, big.H).catch((e) => (console.warn('face detector unavailable:', e), [] as Box[])),
+    detectObjects(big.ctx.canvas, big.W, big.H).catch((e) => (console.warn('object detector unavailable:', e), [])),
+  ]);
   const onPerson = alpha && alpha.map((a) => (a > 64 ? 1 : 0));
+  const small = pixels(bmp, 480);
   let texts: TextSpot[];
   try {
     onStatus('กำลังอ่านข้อความในรูป…');
     const w = await ocr();
     texts = [];
-    for (const s of findText(rgba, W, H, null, 16)) {
+    for (const s of findText(small.rgba, small.W, small.H, null, 24)) {
       const r = await read(w, bmp, s);
       if (r) texts.push(s.background ? { ...s, text: r.text } : r); // a label keeps its box: its font size comes from that
-      if (texts.length === 8) break;
+      if (texts.length === 12) break;
     }
   } catch (e) {
     console.warn('text reader unavailable, keeping text off the person:', e);
-    texts = findText(rgba, W, H, onPerson);
-  } finally {
-    bmp.close();
+    const m = onPerson && Uint8Array.from({ length: small.W * small.H }, (_, i) => onPerson[Math.floor(((Math.floor(i / small.W) + 0.5) * H) / small.H) * W + Math.floor((((i % small.W) + 0.5) * W) / small.W)]);
+    texts = findText(small.rgba, small.W, small.H, m, 12);
   }
-  return { aspect, person: alpha && personBox(alpha, W, H), texts };
+  onStatus('กำลังจัดช่องตามรูปต้นแบบ…');
+  const people = splitByFaces(alpha ? peopleBoxes(alpha, W, H) : [], faces);
+  const spots: Spot[] = mergeDetections(people, found, texts.map((t) => grow(t, 1.2)));
+  const g = pixels(bmp, 200);
+  // A flat area holding a person or an object is the photo they are in, not a sticker: their own slot covers it.
+  const graphics = findGraphics(g.rgba, g.W, g.H, [...spots, ...texts.map((t) => grow(t, 1.3))]).filter((x) => !spots.some((s) => inside(s, x) > 0.8));
+  bmp.close();
+  const persons = spots.filter((x) => x.kind === 'person').sort((a, b) => b.w * b.h - a.w * a.h);
+  return { aspect, person: persons[0] ?? (alpha && personBox(alpha, W, H)), texts, spots: [...spots, ...graphics] };
 }
 
-// The reference kept with the project (for its colours later) and, when it shows a person, an empty portrait slot.
-export async function layoutAssets(projectId: string, reference: File, layout: Layout): Promise<{ reference: MediaAsset; slot: MediaAsset | null }> {
+const ASPECTS: [Aspect, number][] = [['9:16', 9 / 16], ['3:4', 3 / 4], ['4:5', 4 / 5], ['1:1', 1], ['4:3', 4 / 3], ['16:9', 16 / 9], ['2:1', 2]];
+const nearest = (r: number) => ASPECTS.reduce((b, a) => (Math.abs(Math.log(r / a[1])) < Math.abs(Math.log(r / b[1])) ? a : b))[0];
+
+// The reference kept with the project (for its colours later), an empty portrait slot for its main person (older
+// layouts), and one empty slot per spot shaped like the spot, named after what it was ("ช่องรูป: แก้ว").
+export async function layoutAssets(projectId: string, reference: File, layout: Layout): Promise<{ reference: MediaAsset; slot: MediaAsset | null; spotSlots: MediaAsset[] }> {
+  const frame = { '16:9': 16 / 9, '9:16': 9 / 16, '1:1': 1, '4:3': 4 / 3, '3:4': 3 / 4, '4:5': 4 / 5, '2:1': 2 }[layout.aspect];
+  const spotSlots: MediaAsset[] = [];
+  for (const s of layout.spots ?? []) {
+    const shape: Aspect = s.kind === 'person' ? '3:4' : nearest((s.w * frame) / Math.max(0.01, s.h));
+    const name = s.kind === 'person' ? 'ช่องคน' : s.kind === 'graphic' ? 'ช่องสติกเกอร์' : `ช่องรูป: ${thaiLabel(s.label, s.score)}`;
+    const file = new File([await placeholderFile(shape)], `${name}.png`, { type: 'image/png' });
+    spotSlots.push({ ...(await importMedia(projectId, file)), placeholder: true });
+  }
   return {
     reference: await importMedia(projectId, reference),
-    slot: layout.person ? { ...(await importMedia(projectId, await placeholderFile('3:4'))), placeholder: true } : null,
+    slot: layout.person && !layout.spots?.length ? { ...(await importMedia(projectId, await placeholderFile('3:4'))), placeholder: true } : null,
+    spotSlots,
   };
 }

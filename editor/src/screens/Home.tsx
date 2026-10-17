@@ -168,8 +168,8 @@ export function Home({ mode }: { mode: 'clips' | 'thumbs' }) {
       const layout = await analyzeThumbnail(file, setBusy);
       const background = { ...(await importMedia(id, await placeholderFile(layout.aspect))), placeholder: true };
       const p = newThumbnail(id, `ตามแบบ ${nameOf(file)}`, background, now());
-      const { reference, slot } = await layoutAssets(id, file, layout);
-      applyLayout(p, layout, reference, slot);
+      const { reference, slot, spotSlots } = await layoutAssets(id, file, layout);
+      applyLayout(p, layout, reference, slot, spotSlots);
       return p;
     });
   }

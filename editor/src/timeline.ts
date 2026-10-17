@@ -2,6 +2,7 @@ import { SCHEMA_VERSION, type Adjust, type Aspect, type Easing, type EffectClip,
 import { CURVE_CHANNELS, HSL_COLOURS, WHEELS, neutralGrade } from './grade.ts';
 import { KEY_PROPS, setEasing, setKeys, toggleKey, transformAt } from './keyframes.ts';
 import type { Layout } from './layout.ts';
+import { scaleForBox } from './objects.ts';
 import type { TextTemplate } from './textTemplates.ts';
 import type { Chroma } from './chroma.ts';
 import { MASK_SHAPES, type Mask } from './mask.ts';
@@ -733,7 +734,7 @@ export function keepParts(p: Project, clipId: string, parts: [Us, Us][]) {
 
 // A thumbnail laid out like a reference picture: its shape, a slot for the person where it has one (cut out once a photo
 // is put in) and text where it has text, in its colours and about its size. Layers already there stay.
-export function applyLayout(p: Project, layout: Layout, reference: MediaAsset, slot: MediaAsset | null) {
+export function applyLayout(p: Project, layout: Layout, reference: MediaAsset, slot: MediaAsset | null, spotSlots: MediaAsset[] = []) {
   p.assets[reference.id] = reference;
   p.still = { ...p.still, reference: reference.id };
   setAspect(p, layout.aspect);
@@ -743,6 +744,19 @@ export function applyLayout(p: Project, layout: Layout, reference: MediaAsset, s
     c.transform = { ...c.transform, x: layout.person.cx, y: layout.person.cy, scale: clamp(layout.person.h / 0.9, 0.2, 1.5) }; // the person fills about 90 % of their photo's height
     c.cutout = { bg: 'clear' };
   }
+  // Every spot gets its own empty slot, bottom to top: objects, then people (in front of things), then stickers.
+  const frame = outputSize(p.aspect, 1080);
+  const order = { object: 0, person: 1, graphic: 2 };
+  (layout.spots ?? [])
+    .map((s, i) => ({ s, a: spotSlots[i] }))
+    .filter((x) => x.a)
+    .sort((x, y) => order[x.s.kind] - order[y.s.kind])
+    .forEach(({ s, a }) => {
+      const c = findClip(p, addOverlay(p, a, 0)) as MediaClip;
+      const scale = s.kind === 'person' ? s.h / 0.9 : scaleForBox(a.width / Math.max(1, a.height), frame[0] / frame[1], s);
+      c.transform = { ...c.transform, x: s.cx, y: s.cy, scale: clamp(scale, 0.05, 4) };
+      if (s.kind === 'person') c.cutout = { bg: 'clear' };
+    });
   const [, H] = outputSize(p.aspect, 1080); // text sizes are pixels on a frame whose short side is 1080
   for (const t of layout.texts) {
     const text = t.text?.trim() || 'ใส่ข้อความ'; // the words read off the reference, to edit

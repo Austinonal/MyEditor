@@ -1,6 +1,7 @@
 // Reading a thumbnail: where its person and its big text sit, and the text's colours. Pure, so it is unit-tested;
 // thumbnail.ts decodes the picture and finds the person with the cutout model.
 import type { Aspect } from './schema';
+import type { Spot } from './objects.ts';
 
 export interface Box {
   cx: number; // centre and size, frame fractions
@@ -17,8 +18,9 @@ export interface TextSpot extends Box {
 }
 export interface Layout {
   aspect: Aspect;
-  person: Box | null;
+  person: Box | null; // the biggest person (older layouts have only this)
   texts: TextSpot[];
+  spots?: Spot[]; // every person, object and graphic, each becoming its own slot
 }
 
 const RATIOS: [Aspect, number][] = [['16:9', 16 / 9], ['9:16', 9 / 16], ['1:1', 1], ['4:3', 4 / 3], ['3:4', 3 / 4], ['4:5', 4 / 5], ['2:1', 2]];

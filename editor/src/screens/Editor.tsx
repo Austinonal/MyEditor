@@ -527,11 +527,11 @@ export function Editor({ id }: { id: string }) {
     setNotice('');
     try {
       const layout = await analyzeThumbnail(file, setBusyText);
-      const { reference, slot } = await layoutAssets(p.id, file, layout);
+      const { reference, slot, spotSlots } = await layoutAssets(p.id, file, layout);
       const main = p.tracks[0].clips[0] as MediaClip;
       const look = p.assets[main.assetId].placeholder ? null : await makeMatch(file, main, p.assets[main.assetId]);
       edit((d) => {
-        applyLayout(d, layout, reference, slot);
+        applyLayout(d, layout, reference, slot, spotSlots);
         if (look) setMatch(d, main.id, { ...look, intensity: 0.7 });
       });
       setSelectedId(null);
