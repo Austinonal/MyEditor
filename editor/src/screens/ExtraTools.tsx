@@ -1,0 +1,65 @@
+import { BottomSheet, Button, Slider, Swatches, Switch } from '../ui';
+import { edit } from '../store';
+import { setChroma, setMask } from '../timeline.ts';
+import { DEFAULT_CHROMA, KEY_COLOURS } from '../chroma.ts';
+import { DEFAULT_MASK, MASK_SHAPES } from '../mask.ts';
+import type { MediaClip } from '../schema';
+
+const focus = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
+
+// ---- chroma key (green screen) ----
+
+export function ChromaSheet({ open, onClose, clip }: { open: boolean; onClose: () => void; clip: MediaClip }) {
+  const c = clip.chroma;
+  const set = (patch: Partial<typeof DEFAULT_CHROMA>, key: string) => edit((d) => setChroma(d, clip.id, { ...(clip.chroma ?? DEFAULT_CHROMA), ...patch }), `chroma-${key}-${clip.id}`);
+  return (
+    <BottomSheet open={open} title="ชโครมาคีย์ (ลบฉากสีเดียว)" onClose={onClose} modal={false}>
+      <div className="flex flex-col gap-3">
+        <Switch label="เปิดชโครมาคีย์" hint="สีที่เลือกจะโปร่งใส เห็นภาพข้างหลังแทน เหมาะกับฉากกรีนสกรีน" on={!!c} onChange={(on) => edit((d) => setChroma(d, clip.id, on ? DEFAULT_CHROMA : null))} />
+        {c && (
+          <>
+            <Swatches label="สีที่จะลบ" colours={KEY_COLOURS} value={c.colour} onChange={(v) => set({ colour: v }, 'colour')} />
+            <Slider label="ลบสีใกล้เคียง" value={Math.round(c.similarity * 100)} min={0} max={100} step={1} format={(v) => `${v}%`} onChange={(v) => set({ similarity: v / 100 }, 'sim')} />
+            <Slider label="ขอบนุ่ม" value={Math.round(c.smoothness * 100)} min={0} max={50} step={1} format={(v) => `${v}%`} onChange={(v) => set({ smoothness: v / 100 }, 'smooth')} />
+            <p className="text-xs text-muted">ให้คลิปนี้เป็นภาพซ้อน (ภาพซ้อน) วางทับวิดีโอหลัก จะเห็นวิดีโอหลักทะลุตรงที่สีถูกลบ · ถ้ายังเหลือขอบสี เพิ่ม “ลบสีใกล้เคียง”</p>
+          </>
+        )}
+      </div>
+    </BottomSheet>
+  );
+}
+
+// ---- mask: show the clip only inside or outside a shape ----
+
+export function MaskSheet({ open, onClose, clip }: { open: boolean; onClose: () => void; clip: MediaClip }) {
+  const m = clip.mask;
+  const set = (patch: Partial<typeof DEFAULT_MASK>, key: string) => edit((d) => setMask(d, clip.id, { ...(clip.mask ?? DEFAULT_MASK), ...patch }), `mask-${key}-${clip.id}`);
+  return (
+    <BottomSheet open={open} title="มาสก์" onClose={onClose} modal={false}>
+      <div className="flex flex-col gap-3">
+        <div role="radiogroup" aria-label="รูปทรงมาสก์" className="grid grid-cols-4 gap-2">
+          <button role="radio" aria-checked={!m} onClick={() => edit((d) => setMask(d, clip.id, null))} className={`h-11 rounded-md text-sm ${!m ? 'bg-accent text-on-accent' : 'bg-raised'} ${focus}`}>
+            ไม่มี
+          </button>
+          {MASK_SHAPES.map(([id, name]) => (
+            <button key={id} role="radio" aria-checked={m?.shape === id} onClick={() => set({ shape: id }, 'shape')} className={`h-11 rounded-md text-sm ${m?.shape === id ? 'bg-accent text-on-accent' : 'bg-raised'} ${focus}`}>
+              {name}
+            </button>
+          ))}
+        </div>
+        {m && (
+          <>
+            <Slider label="ขนาด" value={Math.round(m.size * 100)} min={10} max={150} step={1} format={(v) => `${v}%`} onChange={(v) => set({ size: v / 100 }, 'size')} />
+            <Slider label="ความนุ่มของขอบ" value={Math.round(m.feather * 100)} min={0} max={100} step={1} format={(v) => `${v}%`} onChange={(v) => set({ feather: v / 100 }, 'feather')} />
+            <Slider label="ตำแหน่งซ้าย-ขวา" value={Math.round(m.x * 100)} min={0} max={100} step={1} format={(v) => `${v}%`} onChange={(v) => set({ x: v / 100 }, 'x')} />
+            <Slider label="ตำแหน่งบน-ล่าง" value={Math.round(m.y * 100)} min={0} max={100} step={1} format={(v) => `${v}%`} onChange={(v) => set({ y: v / 100 }, 'y')} />
+            <Switch label="กลับด้าน" hint="โชว์ด้านนอกรูปทรง ซ่อนด้านใน" on={m.invert} onChange={(on) => set({ invert: on }, 'invert')} />
+            <Button variant="ghost" size="md" onClick={() => edit((d) => setMask(d, clip.id, null))}>
+              เอามาสก์ออก
+            </Button>
+          </>
+        )}
+      </div>
+    </BottomSheet>
+  );
+}

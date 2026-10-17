@@ -16,14 +16,16 @@ import {
   type WrappedCanvas,
 } from 'mediabunny';
 import type { AudioClip, ExportSettings, MediaClip, Project } from './schema';
-import { FRAME_NUDGE, SEC, fitContain, outputSize, projectDuration, sourceOut } from './timeline.ts';
+import { FRAME_NUDGE, SEC, fitContain, outputSize, pitchFix, projectDuration, sourceOut } from './timeline.ts';
 import { deleteExport, exportFile, openInput, openMedia } from './media';
 import { renderFrame, visibleAt } from './render';
 import { fileSecondsAt, rateAt } from './timing.ts';
-import { voiceChain } from './voice';
+import { pitchChain, voiceChain } from './voice';
+import { denoise } from './denoise.ts';
 import { loadFonts } from './fonts';
 import { prepareLuts } from './colour';
 import { needsPerson, preparePerson } from './segment';
+import { prepareCanvasImage } from './canvasbg';
 
 export class ExportError extends Error {
   constructor(readonly code: 'no-video-encoder') {
@@ -109,7 +111,7 @@ export type WorkerReply = { type: 'progress'; value: number } | { type: 'done' }
 // A thumbnail: the frame at time 0 as a JPEG (YouTube takes up to 2 MB; 1280 x 720 at this quality is far below) or a PNG.
 export async function exportStill(p: Project, height: number, type: 'image/jpeg' | 'image/png' = 'image/jpeg'): Promise<File> {
   const [width, h] = outputSize(p.aspect, height);
-  await Promise.all([loadFonts(), prepareLuts(p), preparePerson(p)]);
+  await Promise.all([loadFonts(), prepareLuts(p), preparePerson(p), prepareCanvasImage(p)]);
   const canvas = new OffscreenCanvas(width, h);
   const feed = clipFeeder(p, width, h, 1, () => 0);
   try {
@@ -140,7 +142,7 @@ export async function renderVideo(p: Project, s: ExportSettings, mixed: MixedAud
   if (audio) output.addAudioTrack(audio);
 
   try {
-    await Promise.all([loadFonts(), prepareLuts(p), preparePerson(p)]);
+    await Promise.all([loadFonts(), prepareLuts(p), preparePerson(p), prepareCanvasImage(p)]);
     await output.start();
     // Audio goes in first: it is small, so the muxer can hold it while the video streams in.
     if (audio && mixed) {
@@ -236,6 +238,7 @@ async function mixAudio(p: Project, clips: (MediaClip | AudioClip)[], total: num
     const to = (reversed ? asset.duration - clip.sourceIn : sourceOut(clip)) / SEC;
     const buf = await decodeRange(ctx, reversed || asset.file, from, to);
     if (!buf) continue;
+    if (clip.denoise) for (let ch = 0; ch < buf.numberOfChannels; ch++) buf.getChannelData(ch).set(denoise(buf.getChannelData(ch), clip.denoise));
     const start = clip.start / SEC;
     const dur = Math.min(clip.duration, total - clip.start) / SEC;
     const src = ctx.createBufferSource();
@@ -255,11 +258,19 @@ async function mixAudio(p: Project, clips: (MediaClip | AudioClip)[], total: num
       g.gain.linearRampToValueAtTime(0, end);
     }
     src.connect(g);
+    // Speed changes pitch unless the clip asks to keep it: the shifter undoes the change (a voice effect, if any, goes after it).
+    const fix = pitchFix(clip);
+    let tail: AudioNode = g;
+    if (fix) {
+      const keep = pitchChain(ctx, fix);
+      tail.connect(keep.input);
+      tail = keep.output;
+    }
     if (clip.voice) {
       const chain = voiceChain(ctx, clip.voice);
-      g.connect(chain.input);
+      tail.connect(chain.input);
       chain.output.connect(ctx.destination);
-    } else g.connect(ctx.destination);
+    } else tail.connect(ctx.destination);
     src.start(start);
     src.stop(start + dur);
   }

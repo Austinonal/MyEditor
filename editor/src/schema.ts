@@ -1,6 +1,9 @@
 // Project document format. One record per project in IndexedDB; media bytes in OPFS.
 // Invariants are listed in replica/architecture.md ("Invariants").
 
+import type { Chroma } from './chroma.ts';
+import type { Mask } from './mask.ts';
+
 export const SCHEMA_VERSION = 1;
 
 export type Id = string; // crypto.randomUUID()
@@ -17,7 +20,7 @@ export interface Project {
   updatedAt: string;
   aspect: Aspect;
   fps: Fps;
-  canvas: { kind: 'colour'; colour: string } | { kind: 'blur'; level: 1 | 2 | 3 | 4 };
+  canvas: { kind: 'colour'; colour: string } | { kind: 'blur'; level: 1 | 2 | 3 | 4 } | { kind: 'image'; image: Id }; // image: a photo asset filling the frame behind the clips
   assets: Record<Id, MediaAsset>;
   tracks: Track[]; // tracks[0] is the main video track
   transitions: Transition[];
@@ -89,6 +92,10 @@ export interface MediaClip extends ClipBase {
   fadeOut?: Us;
   voice?: Voice | null;
   cutout?: { bg: 'clear' | 'blur' | 'image'; image?: Id } | null; // the person kept, the background removed, blurred or swapped for a photo asset
+  chroma?: Chroma | null; // green screen: the key colour becomes transparent
+  mask?: Mask | null; // shown only inside (or outside) a shape, with a soft edge
+  denoise?: number; // 0..1 noise reduction on the clip's own sound; applied in the export
+  keepPitch?: boolean; // speed changes keep the voice's pitch; applied in the export
   quality?: { enhance: { lo: [number, number, number]; hi: [number, number, number] } | null; stabilize: 0 | 1 | 2; deflicker: boolean };
   animIn: Anim | null; // starts on the first frame
   animOut: Anim | null; // ends on the last frame
@@ -150,6 +157,8 @@ export interface AudioClip extends ClipBase {
   fadeIn: Us;
   fadeOut: Us;
   voice?: Voice | null;
+  denoise?: number;
+  keepPitch?: boolean;
 }
 
 export interface EffectClip extends ClipBase {

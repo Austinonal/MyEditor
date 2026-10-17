@@ -2,6 +2,9 @@ import { SCHEMA_VERSION, type Adjust, type Aspect, type Easing, type EffectClip,
 import { CURVE_CHANNELS, HSL_COLOURS, WHEELS, neutralGrade } from './grade.ts';
 import { KEY_PROPS, setEasing, setKeys, toggleKey, transformAt } from './keyframes.ts';
 import type { Layout } from './layout.ts';
+import type { TextTemplate } from './textTemplates.ts';
+import type { Chroma } from './chroma.ts';
+import { MASK_SHAPES, type Mask } from './mask.ts';
 
 export const SEC = 1_000_000;
 // Seconds added when sampling a source frame: containers round timestamps (WebM to whole ms), which would otherwise land one frame early.
@@ -328,8 +331,13 @@ export function setAspect(p: Project, aspect: Aspect) {
   p.aspect = aspect;
 }
 
-export function setCanvas(p: Project, canvas: Project['canvas']) {
-  p.canvas = canvas.kind === 'blur' ? { kind: 'blur', level: clamp(Math.round(canvas.level), 1, 4) as 1 | 2 | 3 | 4 } : { kind: 'colour', colour: /^#[0-9a-f]{6}$/i.test(canvas.colour) ? canvas.colour : '#000000' };
+export function setCanvas(p: Project, canvas: Project['canvas'], image?: MediaAsset) {
+  if (canvas.kind === 'image') {
+    const a = image ?? p.assets[canvas.image];
+    if (!a || a.kind !== 'photo') throw new Error('a background picture is a photo');
+    p.assets[a.id] = a;
+    p.canvas = { kind: 'image', image: a.id };
+  } else p.canvas = canvas.kind === 'blur' ? { kind: 'blur', level: clamp(Math.round(canvas.level), 1, 4) as 1 | 2 | 3 | 4 } : { kind: 'colour', colour: /^#[0-9a-f]{6}$/i.test(canvas.colour) ? canvas.colour : '#000000' };
 }
 
 // Speed keeps the part of the recording the clip uses; the clip gets longer or shorter.
@@ -806,6 +814,7 @@ export function assertValid(p: Project) {
   };
   const minDur = frameUs(p);
   if (p.tracks[0]?.kind !== 'main') fail('tracks[0] must be the main track');
+  if (p.canvas.kind === 'image' && p.assets[p.canvas.image]?.kind !== 'photo') fail('canvas picture is missing');
   p.tracks.forEach((track, i) => {
     let end = 0;
     for (const c of track.clips) {
@@ -830,6 +839,9 @@ export function assertValid(p: Project) {
       if (c.kind !== 'audio' && Object.values(c.adjust).some((v) => !(v >= -100 && v <= 100))) fail(`adjust out of range on ${c.id}`);
       if (c.kind !== 'audio' && c.match && !(c.match.intensity >= 0 && c.match.intensity <= 1)) fail(`colour match intensity on ${c.id}`);
       if (c.kind === 'audio' && c.fadeIn + c.fadeOut > c.duration) fail(`fades longer than ${c.id}`);
+      if (c.denoise !== undefined && !(c.denoise >= 0 && c.denoise <= 1)) fail(`noise reduction on ${c.id}`);
+      if (c.kind !== 'audio' && c.chroma && !(c.chroma.similarity >= 0 && c.chroma.similarity <= 1 && c.chroma.smoothness >= 0 && c.chroma.smoothness <= 1)) fail(`chroma key on ${c.id}`);
+      if (c.kind !== 'audio' && c.mask && !(c.mask.size >= 0.1 && c.mask.size <= 1.5 && c.mask.feather >= 0 && c.mask.feather <= 1)) fail(`mask on ${c.id}`);
     }
   });
   const main = p.tracks[0].clips;
@@ -870,4 +882,65 @@ export function formatTime(us: Us, tenths = false) {
   const mm = String(Math.floor(s / 60)).padStart(2, '0');
   const ss = String(Math.floor(s % 60)).padStart(2, '0');
   return tenths ? `${mm}:${ss}.${Math.floor((s * 10) % 10)}` : `${mm}:${ss}`;
+}
+
+// ---- chroma key, mask, noise reduction, pitch ----
+
+const HEX = /^#[0-9a-f]{6}$/i;
+const unit = (v: number) => clamp(Number.isFinite(v) ? v : 0, 0, 1);
+
+export function setChroma(p: Project, clipId: string, chroma: Chroma | null) {
+  const c = visualClip(p, clipId);
+  c.chroma = chroma ? { colour: HEX.test(chroma.colour) ? chroma.colour.toLowerCase() : '#00ff00', similarity: unit(chroma.similarity), smoothness: unit(chroma.smoothness) } : null;
+}
+
+export function setMask(p: Project, clipId: string, mask: Mask | null) {
+  const c = visualClip(p, clipId);
+  if (!mask) return void (c.mask = null);
+  if (!MASK_SHAPES.some(([id]) => id === mask.shape)) throw new Error('unknown mask shape');
+  c.mask = { shape: mask.shape, size: clamp(Number.isFinite(mask.size) ? mask.size : 0.7, 0.1, 1.5), x: unit(mask.x), y: unit(mask.y), feather: unit(mask.feather), invert: !!mask.invert };
+}
+
+export function setDenoise(p: Project, clipId: string, amount: number) {
+  const c = findClip(p, clipId);
+  if (c.kind !== 'video' && c.kind !== 'audio') throw new Error('only sound can be cleaned');
+  c.denoise = unit(amount);
+}
+
+export function setKeepPitch(p: Project, clipId: string, on: boolean) {
+  const c = findClip(p, clipId);
+  if (c.kind !== 'video' && c.kind !== 'audio') throw new Error('only sound has a pitch');
+  c.keepPitch = !!on;
+}
+
+// The pitch ratio the export applies to bring a sped-up or slowed clip's voice back to where it was, or null for none.
+// shortcut: constant speeds between 0.5x and 2x; a speed curve or a faster change leaves the pitch as it is.
+export function pitchFix(c: { speed: number; keepPitch?: boolean; curve?: unknown }): number | null {
+  if (!c.keepPitch || c.curve || Math.abs(c.speed - 1) < 0.01) return null;
+  const ratio = 1 / c.speed;
+  return ratio >= 0.5 && ratio <= 2 ? ratio : null;
+}
+
+// ---- text templates: a look, a place and animations in one tap ----
+
+export function applyTextTemplate(p: Project, clipId: string, t: TextTemplate, keepText = true) {
+  const c = findClip(p, clipId);
+  if (c.kind !== 'text') throw new Error('not a text clip');
+  if (!keepText || !c.text.trim() || c.text === 'ข้อความ') c.text = t.text;
+  c.style = structuredClone(t.style);
+  c.transform = { ...c.transform, x: t.x ?? 0.5, y: t.y, scale: t.scale ?? 1 };
+  const d = Math.min(t.animMs ?? 600, c.duration);
+  c.animIn = c.animOut = c.animLoop = null;
+  if (t.animLoop) setAnim(p, clipId, 'combo', t.animLoop, c.duration);
+  else {
+    if (t.animIn) setAnim(p, clipId, 'in', t.animIn, d);
+    const inDur = (findClip(p, clipId) as TextClip).animIn?.duration ?? 0; // setAnim may have clamped it
+    if (t.animOut) setAnim(p, clipId, 'out', t.animOut, Math.min(d, c.duration - inDur));
+  }
+}
+
+export function addTextFromTemplate(p: Project, at: Us, t: TextTemplate) {
+  const id = addText(p, at, t.text, t.style, t.seconds ?? 3);
+  applyTextTemplate(p, id, t, false);
+  return id;
 }

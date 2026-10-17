@@ -74,3 +74,17 @@ export function chunksToCaptions(chunks: { timestamp: [number, number | null]; t
   }
   return out;
 }
+
+// Filler words ("เอ่อ", "อืม", "um", "uh"...) taken out of caption text. Words are found with the browser's word segmenter, so a Thai word that only
+// contains the letters (อ่าน) is left alone. A caption that was only fillers is dropped. This cleans the words on screen; it does not cut the sound.
+const FILLERS = new Set(['เอ่อ', 'เออ', 'เอ้อ', 'เอิ่ม', 'อืม', 'อึม', 'อ่า', 'ฮื่อ', 'um', 'uh', 'uhm', 'umm', 'erm', 'er', 'hmm', 'mm', 'mhm']);
+
+export function stripFillers(text: string): string {
+  const parts = [...new Intl.Segmenter('th', { granularity: 'word' }).segment(text)];
+  const kept = parts.filter((x) => !(x.isWordLike && FILLERS.has(x.segment.toLowerCase())));
+  return kept.map((x) => x.segment).join('').replace(/\s{2,}/g, ' ').replace(/\s+([,.!?])/g, '$1').replace(/^[\s,.…-]+|[\s,]+$/g, '').trim();
+}
+
+export function removeFillers(caps: Caption[]): Caption[] {
+  return caps.map((c) => ({ ...c, text: stripFillers(c.text) })).filter((c) => c.text);
+}

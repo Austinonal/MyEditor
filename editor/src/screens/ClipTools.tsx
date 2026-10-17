@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { Circle, FlipHorizontal2, Mic, RotateCcw, RotateCw, Square } from 'lucide-react';
-import { BottomSheet, Button, CategoryTabs, PresetTile, Slider } from '../ui';
+import { BottomSheet, Button, CategoryTabs, PresetTile, Slider, Switch } from '../ui';
 import { edit } from '../store';
 import { SPEED_PRESETS } from '../timing.ts';
 import { TRANSITIONS } from '../transitions';
 import { VOICES } from '../voice';
 import { EFFECTS } from '../effects';
-import { SEC, SUBTITLE, addEffect, addText, extractAudio, formatTime, projectDuration, setBeats, setCrop, setCutout, updateText, setCurve, setEffect, setFades, setSpeed, setTransition, setVoice, setVolume, syncToBeats } from '../timeline.ts';
+import { SEC, SUBTITLE, addEffect, addText, extractAudio, formatTime, projectDuration, setBeats, setCrop, setCutout, setDenoise, setKeepPitch, updateText, setCurve, setEffect, setFades, setSpeed, setTransition, setVoice, setVolume, syncToBeats } from '../timeline.ts';
 import { findBeats } from '../sound.ts';
 import { monoOf } from '../thumbs';
 import { loadSegmenter } from '../segment';
@@ -330,6 +330,9 @@ export function SoundSheet({ open, onClose, clip, canExtract, onExtracted }: { o
           format={(v) => `${v.toFixed(1)} วิ`}
           onChange={(v) => edit((d) => setFades(d, clip.id, clip.fadeIn ?? 0, v * SEC), `fade-out-${clip.id}`)}
         />
+        <Slider label="ลดเสียงรบกวน" value={Math.round((clip.denoise ?? 0) * 100)} min={0} max={100} step={5} format={(v) => (v ? `${v}%` : 'ปิด')} onChange={(v) => edit((d) => setDenoise(d, clip.id, v / 100), `denoise-${clip.id}`)} />
+        <p className="text-xs text-muted">ลดเสียงซ่าและเสียงหึ่งที่ดังสม่ำเสมอ ได้ยินตอนส่งออกเท่านั้น (ตัวอย่างบนจอยังเป็นเสียงเดิม) ยิ่งมากเสียงพูดยิ่งอาจแหบ</p>
+        <Switch label="คงระดับเสียงเมื่อเปลี่ยนความเร็ว" hint="เร่งหรือหน่วงคลิปแล้วเสียงไม่แหลมหรือทุ้มขึ้น ใช้ได้ที่ความเร็ว 0.5x-2x" on={!!clip.keepPitch} onChange={(on) => edit((d) => setKeepPitch(d, clip.id, on))} />
         <p className="text-sm">เปลี่ยนเสียง</p>
         <div role="radiogroup" aria-label="เปลี่ยนเสียง" className="flex flex-wrap gap-2">
           {[{ id: null, name: 'ปกติ' }, ...VOICES].map((v) => (

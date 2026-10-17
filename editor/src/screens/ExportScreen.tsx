@@ -7,6 +7,7 @@ import { outputSize } from '../timeline.ts';
 import { canShare, saveExport, shareExport } from '../save';
 import type { ExportSettings, Fps } from '../schema';
 
+const BITRATE: Record<string, ExportSettings['bitrate']> = { ต่ำ: 'low', กลาง: 'medium', สูง: 'high' };
 const RES: Record<string, ExportSettings['height']> = { '720p': 720, '1080p': 1080, '2K': 1440, '4K': 2160 };
 
 type Job =
@@ -28,6 +29,7 @@ export function ExportScreen({ id }: { id: string }) {
   const [height, setHeight] = useState<ExportSettings['height']>(project?.id === id && project.still ? 720 : 1080); // thumbnails: 1280 x 720
   const [fps, setFps] = useState<Fps | null>(null);
   const [png, setPng] = useState(false);
+  const [bitrate, setBitrate] = useState<ExportSettings['bitrate']>('high');
   const [job, setJob] = useState<Job>({ state: 'idle' });
   const [saved, setSaved] = useState('');
   const abort = useRef<AbortController | null>(null);
@@ -53,7 +55,7 @@ export function ExportScreen({ id }: { id: string }) {
       if (p.still) return setJob({ state: 'done', file: await exportStill(p, height, png ? 'image/png' : 'image/jpeg') });
       const file = await exportProject(
         p,
-        { height, fps: fps ?? p.fps, bitrate: 'high', codec: 'avc' },
+        { height, fps: fps ?? p.fps, bitrate, codec: 'avc' },
         (f) => {
           const pct = Math.floor(f * 100);
           if (pct !== shown) setJob({ state: 'running', progress: (shown = pct) / 100 });
@@ -124,6 +126,13 @@ export function ExportScreen({ id }: { id: string }) {
             onChange={(v) => setFps(Number(v) as Fps)}
           />
         </fieldset>}
+        {!p?.still && (
+          <fieldset disabled={busy} className="flex flex-col gap-2">
+            <legend className="text-sm">คุณภาพวิดีโอ (บิตเรต)</legend>
+            <CategoryTabs items={Object.keys(BITRATE)} value={Object.keys(BITRATE).find((k) => BITRATE[k] === bitrate)!} onChange={(v) => setBitrate(BITRATE[v])} />
+            <p className="text-xs text-muted">{bitrate === 'low' ? 'ต่ำ: ไฟล์เล็กที่สุด เหมาะกับส่งแชต ภาพอาจไม่คมในฉากเคลื่อนไหวเร็ว' : bitrate === 'medium' ? 'กลาง: สมดุลระหว่างขนาดไฟล์กับความคม เหมาะกับโซเชียลทั่วไป' : 'สูง: คมที่สุด ไฟล์ใหญ่ที่สุด เหมาะกับเก็บต้นฉบับ'}</p>
+          </fieldset>
+        )}
 
         {p && p.tracks.some((t) => t.clips.some((c) => (c.kind === 'video' || c.kind === 'photo') && p.assets[c.assetId].placeholder)) && (
           <p role="alert" className="text-sm text-warning">ยังมีช่องว่างในโปรเจกต์ ช่องนั้นจะออกมาเป็นภาพว่าง{p.still ? 'ในรูป' : 'ในวิดีโอ'}</p>

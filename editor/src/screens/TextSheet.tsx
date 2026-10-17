@@ -2,8 +2,9 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { AlignCenter, AlignLeft, AlignRight, Captions } from 'lucide-react';
 import { BottomSheet, Button, CategoryTabs, PresetTile, Slider, Swatches, Switch } from '../ui';
 import { edit } from '../store';
-import { FONTS, family } from '../fonts';
-import { SEC, setBehind, updateText } from '../timeline.ts';
+import { FONTS, family, importFont, listCustomFonts, type CustomFont } from '../fonts';
+import { TEXT_TEMPLATES } from '../textTemplates.ts';
+import { SEC, applyTextTemplate, setBehind, updateText } from '../timeline.ts';
 import type { TextClip, TextStyle } from '../schema';
 
 const COLOURS = ['#ffffff', '#000000', '#ff3b30', '#ff9500', '#ffd84d', '#34c759', '#00c7be', '#32ade6', '#007aff', '#af52de', '#ff4f8b', '#a2845e'];
@@ -25,7 +26,7 @@ const LOOKS: [string, Look][] = [
   ['ตัวดำขอบขาว', { colour: '#111111ff', stroke: { colour: '#ffffffff', width: 8 }, shadow: null, background: null }],
 ];
 
-const TABS = ['สไตล์', 'แบบอักษร', 'สี', 'ขอบ', 'เงา', 'พื้นหลัง', 'ตำแหน่ง'] as const;
+const TABS = ['เทมเพลต', 'สไตล์', 'แบบอักษร', 'สี', 'ขอบ', 'เงา', 'พื้นหลัง', 'ตำแหน่ง'] as const;
 type Tab = (typeof TABS)[number];
 
 const rgb = (c: string) => c.slice(0, 7);
@@ -53,6 +54,12 @@ const POSITIONS: [string, number][] = [
 
 export function TextSheet({ open, onClose, clip, shown, setTransform, onNext }: { open: boolean; onClose: () => void; clip: TextClip; shown: TextClip['transform']; setTransform: (patch: Partial<TextClip['transform']>, key: string) => void; onNext?: () => void }) {
   const [tab, setTab] = useState<Tab>('สไตล์');
+  const [custom, setCustom] = useState<CustomFont[]>([]);
+  const [fontError, setFontError] = useState('');
+  const fontInput = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (open) void listCustomFonts().then(setCustom, () => {});
+  }, [open]);
   const area = useRef<HTMLTextAreaElement>(null);
   const s = clip.style;
   const style = (patch: Partial<TextStyle>, key: string) => edit((d) => updateText(d, clip.id, { style: patch }), `text-${key}-${clip.id}`);
@@ -84,6 +91,27 @@ export function TextSheet({ open, onClose, clip, shown, setTransform, onNext }: 
           </div>
         )}
         <CategoryTabs items={[...TABS]} value={tab} onChange={(v) => setTab(v as Tab)} />
+
+        {tab === 'เทมเพลต' && (
+          <>
+            <div className="grid grid-cols-3 gap-2">
+              {TEXT_TEMPLATES.map((t) => (
+                <PresetTile
+                  key={t.id}
+                  label={t.name}
+                  selected={false}
+                  thumb={
+                    <span className="text-base leading-tight" style={{ fontFamily: family(t.style.fontId), ...lookCss({ colour: t.style.colour, stroke: t.style.stroke, shadow: t.style.shadow, background: t.style.background }) }}>
+                      {t.text.length > 8 ? 'Aa ก' : t.text}
+                    </span>
+                  }
+                  onClick={() => edit((d) => applyTextTemplate(d, clip.id, t))}
+                />
+              ))}
+            </div>
+            <p className="text-xs text-muted">เลือกแล้วตั้งสไตล์ ตำแหน่ง และแอนิเมชันให้ครบ ข้อความที่พิมพ์ไว้แล้วจะไม่ถูกเปลี่ยน แก้ต่อได้ในแท็บอื่น</p>
+          </>
+        )}
 
         {tab === 'สไตล์' && (
           <div className="grid grid-cols-4 gap-2">
@@ -118,6 +146,44 @@ export function TextSheet({ open, onClose, clip, shown, setTransform, onNext }: 
                 <span className="text-xs text-muted">{f.name}</span>
               </button>
             ))}
+            {custom.map((f) => (
+              <button
+                key={f.id}
+                aria-pressed={s.fontId === f.id}
+                onClick={() => style({ fontId: f.id }, 'font')}
+                className={`flex h-14 flex-col items-start justify-center rounded-md bg-raised px-3 text-left focus-visible:outline-2 focus-visible:outline-accent ${s.fontId === f.id ? 'ring-2 ring-accent' : ''}`}
+              >
+                <span className="text-lg leading-tight" style={{ fontFamily: family(f.id) }}>
+                  สวัสดี Aa
+                </span>
+                <span className="truncate text-xs text-muted">{f.name}</span>
+              </button>
+            ))}
+            <Button variant="secondary" size="md" className="col-span-2" onClick={() => fontInput.current?.click()}>
+              นำเข้าฟอนต์จากเครื่อง
+            </Button>
+            <input
+              ref={fontInput}
+              type="file"
+              accept=".ttf,.otf,.woff,.woff2,font/*"
+              hidden
+              aria-label="เลือกไฟล์ฟอนต์"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.target.value = '';
+                if (!f) return;
+                setFontError('');
+                importFont(f).then(
+                  (font) => {
+                    setCustom((c) => [...c, font]);
+                    style({ fontId: font.id }, 'font');
+                  },
+                  (err: Error) => setFontError(err.message),
+                );
+              }}
+            />
+            {fontError && <p role="alert" className="col-span-2 text-sm text-danger">{fontError}</p>}
+            <p className="col-span-2 text-xs text-muted">ฟอนต์ที่นำเข้าเก็บไว้ในเครื่องนี้ ใช้ได้ทั้งในตัวอย่างและตอนส่งออก · ใช้เฉพาะฟอนต์ที่คุณมีสิทธิ์ใช้</p>
           </div>
         )}
 

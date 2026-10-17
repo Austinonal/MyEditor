@@ -64,6 +64,9 @@ function pitchShift(ctx: BaseAudioContext, ratio: number): Chain {
   return { input, output };
 }
 
+// For speed changes that keep the voice's pitch: the same shifter the voice effects use, by an exact ratio.
+export const pitchChain = pitchShift;
+
 export function voiceChain(ctx: BaseAudioContext, voice: Voice): Chain {
   if (voice === 'high') return pitchShift(ctx, 1.42);
   if (voice === 'low') return pitchShift(ctx, 0.72);

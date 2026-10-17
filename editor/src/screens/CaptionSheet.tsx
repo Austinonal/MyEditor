@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
 import { AudioLines, FileUp, Plus, Trash2 } from 'lucide-react';
-import { BottomSheet, Button, Slider } from '../ui';
+import { BottomSheet, Button, Slider, Switch } from '../ui';
 import { edit } from '../store';
-import { linesToCaptions, parseSubtitles } from '../captions';
+import { linesToCaptions, parseSubtitles, removeFillers } from '../captions';
 import { transcribe } from '../speech';
 import { importMessage } from './Home';
 import { SEC, addCaptions, deleteClip, formatTime, updateText } from '../timeline.ts';
@@ -29,6 +29,7 @@ export function CaptionSheet({
   const [message, setMessage] = useState('');
   const file = useRef<HTMLInputElement>(null);
   const [language, setLanguage] = useState('thai');
+  const [dropFillers, setDropFillers] = useState(true);
   const [hearing, setHearing] = useState<string | null>(null);
   const stop = useRef<AbortController | null>(null);
   const captions = (project.tracks.flatMap((t) => t.clips).filter((c) => c.kind === 'text') as TextClip[]).sort((a, b) => a.start - b.start);
@@ -48,7 +49,7 @@ export function CaptionSheet({
     stop.current = new AbortController();
     try {
       const caps = await transcribe(project, language, (s) => setHearing(s.listening ? 'กำลังถอดเสียงเป็นข้อความ… (ใช้เวลาพอๆ กับความยาวคลิปหรือนานกว่าในเครื่องรุ่นเก่า)' : `กำลังโหลดโมเดลถอดเสียง ${Math.round((s.download ?? 0) * 100)}%`), stop.current.signal);
-      make(caps, 'เสียงพูดในคลิป');
+      make(dropFillers ? removeFillers(caps) : caps, 'เสียงพูดในคลิป');
     } catch (e) {
       if (!stop.current?.signal.aborted) setMessage(`ถอดเสียงไม่สำเร็จ: ${importMessage(e)}`);
     } finally {
@@ -87,6 +88,7 @@ export function CaptionSheet({
               </button>
             ))}
           </div>
+          <Switch label="ตัดคำฟุ่มเฟือยออกจากซับ" hint="เอ่อ อืม um uh ไม่ขึ้นในซับ (เสียงในคลิปยังอยู่)" on={dropFillers} disabled={!!hearing} onChange={setDropFillers} />
           {hearing ? (
             <Button variant="secondary" onClick={() => stop.current?.abort()}>
               หยุด

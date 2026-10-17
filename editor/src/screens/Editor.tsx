@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ArrowLeft, AudioLines, Captions, Crop, Diamond, Drum, Gauge, Gem, Mic, Ratio, Rewind, Snowflake, ImagePlus, Layers, Move, Music, Palette, Pause, Play, Redo2, Replace, Scissors, SlidersHorizontal, Sparkles, SunMedium, Trash2, Type, Undo2, Upload, UserRound, Volume2, WandSparkles, Zap, Crosshair, ScanFace, ScanSearch, Smile, ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowLeft, AudioLines, Captions, Crop, Diamond, Drum, Gauge, Gem, Mic, Ratio, Rewind, Snowflake, ImagePlus, Layers, Move, Music, Palette, Pause, Play, Redo2, Replace, Scissors, SlidersHorizontal, Sparkles, SunMedium, Trash2, Type, Undo2, Upload, UserRound, Volume2, WandSparkles, Zap, Crosshair, ScanFace, ScanSearch, Smile, ArrowUp, ArrowDown, Pipette, Shapes } from 'lucide-react';
 import { BottomSheet, BottomToolbar, Button, Slider, Swatches, ToolButton, TopBar } from '../ui';
 import { edit, openProject, redo, undo, useEditor } from '../store';
 import { importMedia, openMedia, storeMedia } from '../media';
@@ -54,6 +54,7 @@ import { TemplateSheet } from './TemplateSheet';
 import { TextSheet } from './TextSheet';
 import { CaptionSheet } from './CaptionSheet';
 import { QualitySheet } from './QualitySheet';
+import { ChromaSheet, MaskSheet } from './ExtraTools';
 import { BeatSheet, CropSheet, CutoutSheet, EffectSheet, StickerSheet, SoundSheet, SpeedSheet, TransitionSheet, VoiceoverSheet } from './ClipTools';
 import { monoOf } from '../thumbs';
 import { speechRanges } from '../sound.ts';
@@ -65,7 +66,7 @@ import { ColourSheet, type ColourTab } from './ColourSheet';
 import { importMessage } from './Home';
 import type { AudioClip, Easing, MediaAsset, MediaClip, Project, TextClip, Transform } from '../schema';
 
-type Sheet = 'anim' | 'trim' | 'sound' | 'template' | 'text' | 'colour' | 'place' | 'captions' | 'quality' | 'canvas' | 'speed' | 'crop' | 'transition' | 'voiceover' | 'effect' | 'beat' | 'cutout' | 'track' | 'sticker' | null;
+type Sheet = 'anim' | 'trim' | 'sound' | 'template' | 'text' | 'colour' | 'place' | 'captions' | 'quality' | 'canvas' | 'speed' | 'crop' | 'transition' | 'voiceover' | 'effect' | 'beat' | 'cutout' | 'chroma' | 'mask' | 'track' | 'sticker' | null;
 type Point = { x: number; y: number };
 const pinchOf = (a: Point, b: Point) => ({ d: Math.hypot(b.x - a.x, b.y - a.y), a: (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI });
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
@@ -123,6 +124,7 @@ export function Editor({ id }: { id: string }) {
   const overlayInput = useRef<HTMLInputElement>(null);
   const replaceInput = useRef<HTMLInputElement>(null);
   const backgroundInput = useRef<HTMLInputElement>(null);
+  const canvasInput = useRef<HTMLInputElement>(null);
   const referenceInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -266,6 +268,21 @@ export function Editor({ id }: { id: string }) {
       const asset = await importMedia(p.id, file);
       if (asset.kind !== 'photo') return setNotice('พื้นหลังใหม่ต้องเป็นรูปนิ่ง');
       edit((d) => setCutout(d, visual.id, { bg: 'image' }, asset));
+    } catch (e) {
+      setNotice(importMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function setCanvasImage(file: File | undefined) {
+    if (!p || !file) return;
+    setBusy(true);
+    setNotice('');
+    try {
+      const asset = await importMedia(p.id, file);
+      if (asset.kind !== 'photo') return setNotice('พื้นหลังต้องเป็นรูปนิ่ง');
+      edit((d) => setCanvas(d, { kind: 'image', image: asset.id }, asset));
     } catch (e) {
       setNotice(importMessage(e));
     } finally {
@@ -763,6 +780,8 @@ export function Editor({ id }: { id: string }) {
             }} />}
             {visual && <ToolButton icon={Palette} label="ฟิลเตอร์" active={sheet === 'colour' && colourTab === 'filter'} onClick={() => openColour('filter')} />}
             {visual && <ToolButton icon={UserRound} label="ตัดพื้นหลัง" active={sheet === 'cutout'} onClick={() => setSheet('cutout')} />}
+            {visual && <ToolButton icon={Pipette} label="ชโครมาคีย์" active={sheet === 'chroma' || !!visual.chroma} onClick={() => setSheet('chroma')} />}
+            {visual && <ToolButton icon={Shapes} label="มาสก์" active={sheet === 'mask' || !!visual.mask} onClick={() => setSheet('mask')} />}
             {visual && <ToolButton icon={Gem} label="คุณภาพ" active={sheet === 'quality'} onClick={() => setSheet('quality')} />}
             {visual && <ToolButton icon={SunMedium} label="ปรับแก้" active={sheet === 'colour' && colourTab === 'adjust'} onClick={() => openColour('adjust')} />}
             {!thumb && (sel.kind === 'video' || sel.kind === 'audio') && <ToolButton icon={Volume2} label="เสียง" active={sheet === 'sound'} onClick={() => setSheet('sound')} />}
@@ -781,6 +800,10 @@ export function Editor({ id }: { id: string }) {
       }} />
       <input ref={backgroundInput} type="file" accept="image/*" hidden aria-label="เลือกรูปพื้นหลังใหม่" onChange={(e) => {
         void setBackground(e.target.files?.[0]);
+        e.target.value = '';
+      }} />
+ <input ref={canvasInput} type="file" accept="image/*" hidden aria-label="เลือกรูปพื้นหลังของเฟรม" onChange={(e) => {
+        void setCanvasImage(e.target.files?.[0]);
         e.target.value = '';
       }} />
       <input ref={referenceInput} type="file" accept="image/*" hidden aria-label="เลือกรูปต้นแบบ" onChange={(e) => {
@@ -840,17 +863,17 @@ export function Editor({ id }: { id: string }) {
               })}
             </div>
             <div role="radiogroup" aria-label="พื้นหลัง" className="flex gap-2">
-              {(['สีพื้น', 'เบลอ'] as const).map((label) => {
-                const on = (label === 'เบลอ') === (p.canvas.kind === 'blur');
+              {(['สีพื้น', 'เบลอ', 'รูปภาพ'] as const).map((label) => {
+                const on = (label === 'เบลอ' ? 'blur' : label === 'รูปภาพ' ? 'image' : 'colour') === p.canvas.kind;
                 return (
                   <button
                     key={label}
                     role="radio"
                     aria-checked={on}
-                    onClick={() => edit((d) => setCanvas(d, label === 'เบลอ' ? { kind: 'blur', level: 2 } : { kind: 'colour', colour: '#000000' }))}
+                    onClick={() => (label === 'รูปภาพ' ? canvasInput.current?.click() : edit((d) => setCanvas(d, label === 'เบลอ' ? { kind: 'blur', level: 2 } : { kind: 'colour', colour: '#000000' })))}
                     className={`h-10 flex-1 rounded-md text-sm ${on ? 'bg-fg text-bg' : 'bg-raised'} focus-visible:outline-2 focus-visible:outline-accent`}
                   >
-                    พื้นหลัง{label}
+                    {label === 'รูปภาพ' ? label : `พื้นหลัง${label}`}
                   </button>
                 );
               })}
@@ -860,10 +883,16 @@ export function Editor({ id }: { id: string }) {
                 <ScanFace size={16} aria-hidden /> จัดเฟรมอัตโนมัติตามตัวคน
               </Button>
             )}
-            {p.canvas.kind === 'colour' ? (
+            {p.canvas.kind === 'colour' && (
               <Swatches label="สีพื้นหลัง" colours={['#000000', '#ffffff', '#1c1c1e', '#ff3b30', '#ffd84d', '#34c759', '#007aff', '#ff4f8b']} value={p.canvas.colour} onChange={(c) => edit((d) => setCanvas(d, { kind: 'colour', colour: c }), 'canvas-colour')} />
-            ) : (
+            )}
+            {p.canvas.kind === 'blur' && (
               <Slider label="ความเบลอ" value={p.canvas.level} min={1} max={4} step={1} onChange={(v) => edit((d) => setCanvas(d, { kind: 'blur', level: v as 1 | 2 | 3 | 4 }), 'canvas-blur')} />
+            )}
+            {p.canvas.kind === 'image' && (
+              <Button variant="secondary" disabled={busy} onClick={() => canvasInput.current?.click()}>
+                <ImagePlus size={16} aria-hidden /> เปลี่ยนรูปพื้นหลัง
+              </Button>
             )}
           </div>
         </BottomSheet>
@@ -928,6 +957,8 @@ export function Editor({ id }: { id: string }) {
           }}
         />
       )}
+      {p && visual && <ChromaSheet open={sheet === 'chroma'} onClose={() => setSheet(null)} clip={visual} />}
+      {p && visual && <MaskSheet open={sheet === 'mask'} onClose={() => setSheet(null)} clip={visual} />}
       {p && visual && <CutoutSheet open={sheet === 'cutout'} onClose={() => setSheet(null)} clip={visual} onPickImage={() => backgroundInput.current?.click()} />}
       {p && (textSel || overlaySel) && (
         <BottomSheet open={sheet === 'track'} title="ติดตาม" onClose={() => setSheet(null)} modal={false}>

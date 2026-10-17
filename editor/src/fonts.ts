@@ -1,3 +1,4 @@
+import { createStore, del, entries, set as put } from 'idb-keyval';
 import kanitThai from '@fontsource/kanit/files/kanit-thai-600-normal.woff2?url';
 import kanitLatin from '@fontsource/kanit/files/kanit-latin-600-normal.woff2?url';
 import promptThai from '@fontsource/prompt/files/prompt-thai-600-normal.woff2?url';
@@ -27,8 +28,42 @@ export const FONTS = [
 const THAI = 'U+0E01-0E5B, U+200C-200D, U+25CC';
 const LATIN = 'U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2212, U+FEFF, U+FFFD';
 
-export const family = (id: string) => `ed-${FONTS.some((f) => f.id === id) ? id : 'kanit'}`;
-export const fontCss = (id: string, px: number) => `${FONTS.find((f) => f.id === id)?.weight ?? '600'} ${px}px ${family(id)}, sans-serif`;
+export const isCustomFont = (id: string) => id.startsWith('custom-');
+export const family = (id: string) => `ed-${isCustomFont(id) || FONTS.some((f) => f.id === id) ? id : 'kanit'}`;
+// A font file the user brought is drawn at its own weight; one that is missing falls back to sans-serif.
+export const fontCss = (id: string, px: number) => `${isCustomFont(id) ? '400' : (FONTS.find((f) => f.id === id)?.weight ?? '600')} ${px}px ${family(id)}, sans-serif`;
+
+// ---- fonts the user imports (.ttf .otf .woff .woff2), kept on this device in IndexedDB ----
+
+export interface CustomFont { id: string; name: string }
+interface Stored extends CustomFont { data: ArrayBuffer }
+const store = () => createStore('editor-fonts', 'fonts');
+export const MAX_FONT_BYTES = 12 * 1024 * 1024;
+export const isFontFile = (name: string) => /\.(ttf|otf|woff2?)$/i.test(name);
+const fontSet = () => (globalThis as unknown as { document?: Document }).document?.fonts ?? (globalThis as unknown as { fonts: FontFaceSet }).fonts;
+
+export async function listCustomFonts(): Promise<CustomFont[]> {
+  return (await entries<string, Stored>(store())).map(([, f]) => ({ id: f.id, name: f.name }));
+}
+
+export async function importFont(file: File): Promise<CustomFont> {
+  if (!isFontFile(file.name)) throw new Error('ใช้ไฟล์ฟอนต์ .ttf .otf .woff หรือ .woff2');
+  if (file.size > MAX_FONT_BYTES) throw new Error('ไฟล์ฟอนต์ใหญ่เกิน 12 MB');
+  const data = await file.arrayBuffer();
+  const id = `custom-${crypto.randomUUID().slice(0, 8)}`;
+  let face: FontFace;
+  try {
+    face = await new FontFace(family(id), data).load(); // the browser rejects a file that is not a font
+  } catch {
+    throw new Error('เปิดไฟล์นี้เป็นฟอนต์ไม่ได้');
+  }
+  fontSet().add(face);
+  const font = { id, name: file.name.replace(/\.[^.]+$/, '').slice(0, 40) };
+  await put(id, { ...font, data }, store());
+  return font;
+}
+
+export const removeCustomFont = (id: string) => del(id, store());
 
 let loading: Promise<void> | null = null;
 
@@ -40,6 +75,13 @@ export function loadFonts(): Promise<void> {
       new FontFace(family(f.id), `url(${f.latin})`, { weight: f.weight, unicodeRange: LATIN }),
     ]);
     await Promise.all(faces.map(async (face) => set.add(await face.load())));
+    for (const [, f] of await entries<string, Stored>(store()).catch(() => [] as [string, Stored][])) {
+      try {
+        set.add(await new FontFace(family(f.id), f.data).load());
+      } catch {
+        // a stored file that no longer opens: text using it falls back to sans-serif
+      }
+    }
   })();
   return loading;
 }

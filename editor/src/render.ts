@@ -7,12 +7,70 @@ import { mergePose, transitionById } from './transitions.ts';
 import { graded } from './colour';
 import { applyEffects } from './effects';
 import { cutout } from './segment';
+import { canvasImage } from './canvasbg';
+import { chromaKey, type Chroma } from './chroma.ts';
+import { maskAlpha, type Mask } from './mask.ts';
 import { SEC, fitContain } from './timeline.ts';
 import type { MediaClip, Project, TextClip, Us } from './schema';
 
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
 let mosaic: OffscreenCanvas | null = null;
+
+// Chroma key per clip: the keyed picture is kept while its frame, size and colour settings stay the same, so a photo or a paused video is not keyed again on every redraw.
+const keyed = new Map<string, { key: string; canvas: OffscreenCanvas }>();
+function chromaOf(id: string, src: CanvasImageSource, w: number, h: number, c: Chroma, frameKey: string): CanvasImageSource {
+  const W = Math.max(1, Math.round(w));
+  const H = Math.max(1, Math.round(h));
+  const key = `${frameKey}|${W}x${H}|${JSON.stringify(c)}`;
+  const hit = keyed.get(id);
+  if (hit?.key === key) return hit.canvas;
+  if (keyed.size >= 8 && !hit) keyed.delete(keyed.keys().next().value!);
+  const canvas = hit?.canvas ?? new OffscreenCanvas(1, 1);
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+  ctx.drawImage(src, 0, 0, W, H);
+  const img = ctx.getImageData(0, 0, W, H);
+  chromaKey(img.data, c);
+  ctx.putImageData(img, 0, 0);
+  keyed.set(id, { key, canvas });
+  return canvas;
+}
+
+// The mask is worked out on a small picture and stretched, so the soft edge stays smooth and the cost stays small.
+const maskPictures = new Map<string, OffscreenCanvas>();
+let maskedCanvas: OffscreenCanvas | null = null;
+const MASK_SIDE = 192;
+function maskPicture(m: Mask, aspect: number): OffscreenCanvas {
+  const key = JSON.stringify([m, Math.round(aspect * 100)]);
+  const hit = maskPictures.get(key);
+  if (hit) return hit;
+  const w = aspect >= 1 ? MASK_SIDE : Math.max(2, Math.round(MASK_SIDE * aspect));
+  const h = aspect >= 1 ? Math.max(2, Math.round(MASK_SIDE / aspect)) : MASK_SIDE;
+  const a = maskAlpha(w, h, m);
+  const img = new ImageData(w, h);
+  for (let i = 0; i < a.length; i++) img.data.set([255, 255, 255, a[i]], i * 4);
+  const c = new OffscreenCanvas(w, h);
+  c.getContext('2d')!.putImageData(img, 0, 0);
+  if (maskPictures.size >= 16) maskPictures.delete(maskPictures.keys().next().value!);
+  maskPictures.set(key, c);
+  return c;
+}
+function maskedOf(src: CanvasImageSource, w: number, h: number, m: Mask): CanvasImageSource {
+  const W = Math.max(1, Math.round(w));
+  const H = Math.max(1, Math.round(h));
+  maskedCanvas ??= new OffscreenCanvas(1, 1);
+  maskedCanvas.width = W;
+  maskedCanvas.height = H;
+  const ctx = maskedCanvas.getContext('2d')!;
+  ctx.drawImage(src, 0, 0, W, H);
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(maskPicture(m, W / H), 0, 0, W, H);
+  ctx.globalCompositeOperation = 'source-over';
+  return maskedCanvas;
+}
 
 function sourceSize(img: CanvasImageSource): [number, number] {
   if (typeof HTMLVideoElement !== 'undefined' && img instanceof HTMLVideoElement) return [img.videoWidth, img.videoHeight]; // no DOM in the export worker
@@ -258,6 +316,12 @@ function drawMedia(ctx: Ctx, W: number, H: number, p: Project, v: Visible, img: 
     const key = `${c.id}|${frame}|${Math.round(ew * k)}x${Math.round(eh * k)}|${JSON.stringify(c.crop)}`;
     src = cutout(src, ew * k, eh * k, key, personOnly ? { bg: 'clear' } : c.cutout!);
   }
+  if (c.chroma || c.mask) {
+    const frame = typeof HTMLVideoElement !== 'undefined' && img instanceof HTMLVideoElement ? img.currentTime : c.kind === 'photo' ? 0 : v.local;
+    const look = JSON.stringify([c.filter, c.adjust, c.grade, c.match, c.crop, c.cutout, personOnly]);
+    if (c.chroma) src = chromaOf(c.id, src, ew * k, eh * k, c.chroma, `${frame}|${look}`);
+    if (c.mask) src = maskedOf(src, ew * k, eh * k, c.mask);
+  }
   // Blurred background: the same picture, filling the frame, behind the clip (for a landscape clip in a portrait frame).
   if (background && !personOnly && p.canvas.kind === 'blur') {
     const s = Math.max(W / ew, H / eh) * 1.08;
@@ -280,6 +344,13 @@ export function renderFrame(ctx: Ctx, W: number, H: number, p: Project, t: Us, f
   ctx.globalAlpha = 1;
   ctx.fillStyle = p.canvas.kind === 'colour' ? p.canvas.colour : '#000000';
   ctx.fillRect(0, 0, W, H);
+  if (p.canvas.kind === 'image') {
+    const bg = canvasImage(p.canvas.image);
+    if (bg) {
+      const s = Math.max(W / bg.width, H / bg.height);
+      ctx.drawImage(bg, (W - bg.width * s) / 2, (H - bg.height * s) / 2, bg.width * s, bg.height * s);
+    }
+  }
   const boxes: TextBox[] = [];
   const visible = visibleAt(p, t).filter((v) => frames.get(v.clip.id));
   const main = visible.filter((v) => v.main);

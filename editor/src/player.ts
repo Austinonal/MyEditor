@@ -7,6 +7,7 @@ import type { Voice } from './schema';
 import { loadFonts } from './fonts';
 import { prepareLuts } from './colour';
 import { preparePerson } from './segment';
+import { prepareCanvasImage } from './canvasbg';
 import { FRAME_NUDGE, SEC, projectDuration } from './timeline.ts';
 
 // Plays a project in a canvas: one clock, every media element follows it and is corrected when it drifts.
@@ -62,6 +63,7 @@ export class Player {
     this.time = Math.min(this.time, projectDuration(p));
     void prepareLuts(p).then(() => this.draw());
     preparePerson(p).then(() => this.draw(), (e) => this.onError?.(e));
+    prepareCanvasImage(p).then(() => this.draw(), (e) => this.onError?.(e));
     void this.load(p);
     this.sync();
     this.draw();
@@ -134,6 +136,7 @@ export class Player {
     const want = fileSecondsAt(c, asset.duration, local) + FRAME_NUDGE;
     // shortcut: media elements play at most 16x; faster parts of a clip are kept in step by seeking
     el.playbackRate = Math.min(16, Math.max(0.0625, rateAt(c, Math.min(c.duration, Math.max(0, local)))));
+    el.preservesPitch = !!c.keepPitch; // same as the export: speed changes the pitch unless the clip keeps it
     const at = Math.min(c.duration, Math.max(0, local));
     const fadeIn = c.fadeIn ?? 0;
     const fadeOut = c.fadeOut ?? 0;
