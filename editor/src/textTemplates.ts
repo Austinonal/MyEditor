@@ -1,5 +1,5 @@
 // Text templates: one tap sets the look, the place and the animations (ids come from anim.ts).
-import type { TextStyle } from './schema.ts';
+import type { TextClip, TextStyle } from './schema.ts';
 
 export interface TextTemplate {
   id: string;
@@ -34,3 +34,22 @@ export const TEXT_TEMPLATES: TextTemplate[] = [
   { id: 'thought', name: 'ความคิด', text: 'คิดอยู่นะ…', style: { ...base, fontId: 'itim', size: 64, colour: '#333333ff', bubble: { shape: 'thought', fill: '#ffffffee', border: null } }, y: 0.3, animIn: 'in:t-fade' },
   { id: 'gold', name: 'ตัวทอง', text: 'สุดยอด', style: { ...base, size: 130, stroke: { colour: '#3b2a00ff', width: 10 }, gradient: { colours: ['#fff3b0', '#e6b422', '#a8770d'], across: false } }, y: 0.4, animIn: 'in:t-zoom' },
 ];
+
+// "My presets": the look, place and animations of a text the user made, kept to reuse like a built-in template.
+export function templateOf(c: TextClip, name: string, id: string): TextTemplate {
+  const anim = c.animIn ?? c.animOut;
+  return {
+    id,
+    name,
+    text: c.text,
+    style: structuredClone(c.style),
+    x: c.transform.x,
+    y: c.transform.y,
+    scale: c.transform.scale,
+    animIn: c.animIn?.presetId,
+    animOut: c.animOut?.presetId,
+    animLoop: c.animLoop?.presetId,
+    animMs: anim ? Math.round(anim.duration / 1000) : undefined,
+    seconds: c.duration / 1_000_000,
+  };
+}

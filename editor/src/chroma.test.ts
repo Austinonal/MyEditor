@@ -96,7 +96,7 @@ test('denoise: steady noise drops a lot, the tone stays', () => {
   assert.deepEqual(denoise(noisy, 0), noisy);
 });
 
-import { TEXT_TEMPLATES } from './textTemplates.ts';
+import { TEXT_TEMPLATES, templateOf } from './textTemplates.ts';
 import { getPreset } from './anim.ts';
 import { SEC, addTextFromTemplate, applyTextTemplate, assertValid, newProject, setCanvas, setChroma, setDenoise, setKeepPitch, setMask, pitchFix, updateText, addText, findClip } from './timeline.ts';
 import type { MediaAsset, MediaClip, TextClip } from './schema.ts';
@@ -134,6 +134,19 @@ test('text templates: applying to existing text keeps what was typed', () => {
   updateText(p, id, { text: '' });
   applyTextTemplate(p, id, TEXT_TEMPLATES[0]);
   assert.equal((findClip(p, id) as TextClip).text, TEXT_TEMPLATES[0].text);
+});
+
+test('my presets: a saved text gives back the same look, place, animation and its timing', () => {
+  const p = proj();
+  const quote = TEXT_TEMPLATES.find((t) => t.id === 'quote')!;
+  const id = addTextFromTemplate(p, 0, quote);
+  const made = findClip(p, id) as TextClip;
+  assert.equal(made.animIn?.duration, 1.5 * SEC); // animMs is milliseconds
+  const mine = templateOf(made, 'ของฉัน', 'my-1');
+  const q = proj();
+  const again = findClip(q, addTextFromTemplate(q, 0, mine)) as TextClip;
+  assertValid(q);
+  assert.deepEqual([again.text, again.style, again.transform, again.animIn, again.duration], [made.text, made.style, made.transform, made.animIn, made.duration]);
 });
 
 test('setters clamp and validate: chroma, mask, noise, pitch', () => {

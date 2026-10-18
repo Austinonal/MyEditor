@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { AlignCenter, AlignLeft, AlignRight, Captions } from 'lucide-react';
+import { AlignCenter, AlignLeft, AlignRight, BookmarkPlus, Captions, X } from 'lucide-react';
 import { BottomSheet, Button, CategoryTabs, PresetTile, Slider, Swatches, Switch } from '../ui';
 import { edit } from '../store';
 import { FONTS, family, importFont, listCustomFonts, type CustomFont } from '../fonts';
-import { TEXT_TEMPLATES } from '../textTemplates.ts';
+import { TEXT_TEMPLATES, templateOf, type TextTemplate } from '../textTemplates.ts';
+import { listPresets, removePreset, savePreset } from '../myPresets.ts';
 import { BUBBLES, GRADIENTS, bubbleOutline } from '../bubbles.ts';
 import { SEC, applyTextTemplate, setBehind, updateText } from '../timeline.ts';
 import type { TextClip, TextStyle } from '../schema';
@@ -69,10 +70,30 @@ export function TextSheet({ open, onClose, clip, shown, setTransform, onNext }: 
   const [tab, setTab] = useState<Tab>('สไตล์');
   const [custom, setCustom] = useState<CustomFont[]>([]);
   const [fontError, setFontError] = useState('');
+  const [mine, setMine] = useState<TextTemplate[]>([]);
+  const reloadMine = () => void listPresets().then(setMine, () => {});
   const fontInput = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (open) void listCustomFonts().then(setCustom, () => {});
+    if (open) reloadMine();
   }, [open]);
+  async function saveMine() {
+    const name = clip.text.trim().slice(0, 16) || 'พรีเซ็ต';
+    await savePreset(templateOf(clip, name, `my-${crypto.randomUUID().slice(0, 8)}`));
+    reloadMine();
+  }
+  const templateTile = (t: TextTemplate) => (
+    <PresetTile
+      label={t.name}
+      selected={false}
+      thumb={
+        <span className="text-base leading-tight" style={{ fontFamily: family(t.style.fontId), ...lookCss({ colour: t.style.colour, stroke: t.style.stroke, shadow: t.style.shadow, background: t.style.background }) }}>
+          {t.text.length > 8 ? 'Aa ก' : t.text}
+        </span>
+      }
+      onClick={() => edit((d) => applyTextTemplate(d, clip.id, t))}
+    />
+  );
   const area = useRef<HTMLTextAreaElement>(null);
   const s = clip.style;
   const style = (patch: Partial<TextStyle>, key: string) => edit((d) => updateText(d, clip.id, { style: patch }), `text-${key}-${clip.id}`);
@@ -107,19 +128,30 @@ export function TextSheet({ open, onClose, clip, shown, setTransform, onNext }: 
 
         {tab === 'เทมเพลต' && (
           <>
+            <h3 className="text-sm font-semibold">พรีเซ็ตของฉัน</h3>
+            <Button variant="secondary" size="md" onClick={() => void saveMine()}>
+              <BookmarkPlus size={16} aria-hidden /> บันทึกข้อความนี้เป็นพรีเซ็ต
+            </Button>
+            {mine.length > 0 && (
+              <div className="grid grid-cols-3 gap-2">
+                {mine.map((t) => (
+                  <div key={t.id} className="relative">
+                    {templateTile(t)}
+                    <button
+                      aria-label={`ลบพรีเซ็ต ${t.name}`}
+                      onClick={() => void removePreset(t.id).then(reloadMine)}
+                      className="absolute top-0 right-1 grid size-7 place-items-center rounded-pill bg-bg/80 text-fg focus-visible:outline-2 focus-visible:outline-accent"
+                    >
+                      <X size={14} aria-hidden />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <h3 className="text-sm font-semibold">เทมเพลตสำเร็จรูป</h3>
             <div className="grid grid-cols-3 gap-2">
               {TEXT_TEMPLATES.map((t) => (
-                <PresetTile
-                  key={t.id}
-                  label={t.name}
-                  selected={false}
-                  thumb={
-                    <span className="text-base leading-tight" style={{ fontFamily: family(t.style.fontId), ...lookCss({ colour: t.style.colour, stroke: t.style.stroke, shadow: t.style.shadow, background: t.style.background }) }}>
-                      {t.text.length > 8 ? 'Aa ก' : t.text}
-                    </span>
-                  }
-                  onClick={() => edit((d) => applyTextTemplate(d, clip.id, t))}
-                />
+                <div key={t.id}>{templateTile(t)}</div>
               ))}
             </div>
             <p className="text-xs text-muted">เลือกแล้วตั้งสไตล์ ตำแหน่ง และแอนิเมชันให้ครบ ข้อความที่พิมพ์ไว้แล้วจะไม่ถูกเปลี่ยน แก้ต่อได้ในแท็บอื่น</p>

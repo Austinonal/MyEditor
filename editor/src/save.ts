@@ -6,7 +6,7 @@ import { Share } from '@capacitor/share';
 const CHUNK = 3 * 1024 * 1024; // a multiple of 3, so every base64 chunk decodes on its own
 const ALBUM = { video: 'Movies/Editor', photo: 'Pictures/Editor' };
 const kindOf = (file: File) => (file.type.startsWith('image/') ? 'photo' : 'video');
-const extOf = (file: File) => (file.type === 'image/png' ? 'png' : kindOf(file) === 'photo' ? 'jpg' : 'mp4');
+const extOf = (file: File) => (file.name.endsWith('.myedit') ? 'myedit' : file.type === 'image/png' ? 'png' : kindOf(file) === 'photo' ? 'jpg' : 'mp4');
 const native = Capacitor.isNativePlatform();
 
 async function base64(blob: Blob) {
@@ -52,6 +52,11 @@ export async function saveExport(file: File, name: string): Promise<string | nul
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
     return null;
+  }
+  if (extOf(file) === 'myedit') {
+    const path = `${safe}-${Date.now()}.myedit`;
+    await write(file, path, Directory.Documents);
+    return `Documents/${path}`;
   }
   const uri = await inCache(file, name);
   try {

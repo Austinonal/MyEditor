@@ -3,6 +3,7 @@ import { copyProjectMedia, deleteProjectMedia } from './media';
 import { useSyncExternalStore } from 'react';
 import type { Project } from './schema';
 import { assertValid } from './timeline.ts';
+import { rehome } from './projectFile.ts';
 
 const db = createStore('editor', 'projects');
 
@@ -113,10 +114,7 @@ export async function duplicateProject(id: string, name: string) {
   q.id = crypto.randomUUID();
   q.name = name;
   q.createdAt = q.updatedAt = new Date().toISOString();
-  for (const a of Object.values(q.assets)) {
-    a.file = a.file.replace(`media/${id}/`, `media/${q.id}/`);
-    if (a.reversedFile) a.reversedFile = a.reversedFile.replace(`media/${id}/`, `media/${q.id}/`);
-  }
+  rehome(q, id, q.id);
   try {
     await copyProjectMedia(id, q.id);
   } catch (e) {

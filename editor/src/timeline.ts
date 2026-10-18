@@ -972,7 +972,7 @@ export function applyTextTemplate(p: Project, clipId: string, t: TextTemplate, k
   if (!keepText || !c.text.trim() || c.text === 'ข้อความ') c.text = t.text;
   c.style = structuredClone(t.style);
   c.transform = { ...c.transform, x: t.x ?? 0.5, y: t.y, scale: t.scale ?? 1 };
-  const d = Math.min(t.animMs ?? 600, c.duration);
+  const d = Math.min((t.animMs ?? 600) * 1000, c.duration);
   c.animIn = c.animOut = c.animLoop = null;
   if (t.animLoop) setAnim(p, clipId, 'combo', t.animLoop, c.duration);
   else {

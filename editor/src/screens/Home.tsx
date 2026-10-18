@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Copy, Ellipsis, Film, Image as ImageIcon, Pencil, Plus, ScanSearch, Trash2 } from 'lucide-react';
+import { Copy, Download, Ellipsis, FileUp, Film, Image as ImageIcon, Pencil, Plus, ScanSearch, Trash2 } from 'lucide-react';
 import { BottomSheet, Button, DraftCard, TopBar } from '../ui';
 import { createProject, deleteProject, duplicateProject, listProjects, renameProject } from '../store';
 import { coverOf } from '../thumbs';
-import { ImportError, deleteProjectMedia, importMedia } from '../media';
+import { ImportError, deleteProjectMedia, importMedia, openMedia, storeMedia } from '../media';
+import { PROJECT_EXT, packProject, unpackProject } from '../projectFile.ts';
+import { saveExport } from '../save';
 import { addMedia, applyLayout, formatTime, newProject, newThumbnail, projectDuration } from '../timeline.ts';
 import { analyzeThumbnail, layoutAssets } from '../thumbnail';
 import { placeholderFile } from './TemplateSheet';
@@ -43,11 +45,26 @@ function Manage({ p, onClose, onChanged }: { p: Project | null; onClose: () => v
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [saved, setSaved] = useState('');
   useEffect(() => {
     setName(p?.name ?? '');
     setConfirm(false);
     setError('');
+    setSaved('');
   }, [p]);
+  async function exportFile(p: Project) {
+    setBusy(true);
+    setError('');
+    try {
+      const blob = await packProject(p, openMedia);
+      const where = await saveExport(new File([blob], `${p.name}${PROJECT_EXT}`), p.name);
+      setSaved(where ? `บันทึกไว้ที่ ${where}` : 'ดาวน์โหลดแล้ว');
+    } catch (e) {
+      setError(`ส่งออกไม่สำเร็จ (${e instanceof Error ? e.message : String(e)})`);
+    } finally {
+      setBusy(false);
+    }
+  }
   async function run(job: () => Promise<unknown>) {
     setBusy(true);
     setError('');
@@ -83,6 +100,10 @@ function Manage({ p, onClose, onChanged }: { p: Project | null; onClose: () => v
           <Button variant="secondary" loading={busy} onClick={() => void run(() => duplicateProject(p.id, `${p.name} (สำเนา)`))}>
             <Copy size={16} aria-hidden /> ทำสำเนา
           </Button>
+          <Button variant="secondary" loading={busy} onClick={() => void exportFile(p)}>
+            <Download size={16} aria-hidden /> ส่งออกไฟล์โปรเจกต์ ({PROJECT_EXT})
+          </Button>
+          {saved && <p className="text-xs text-muted">{saved} · เปิดในแอปนี้เครื่องอื่นได้ด้วย “นำเข้าไฟล์โปรเจกต์”</p>}
           {confirm ? (
             <div role="alert" className="flex flex-col gap-2 rounded-md bg-raised p-3">
               <p className="text-sm">ลบ “{p.name}” และไฟล์ที่นำเข้ามาในโปรเจกต์นี้? กู้คืนไม่ได้</p>
@@ -118,6 +139,7 @@ export function Home({ mode }: { mode: 'clips' | 'thumbs' }) {
   const [error, setError] = useState('');
   const picker = useRef<HTMLInputElement>(null);
   const referencePicker = useRef<HTMLInputElement>(null);
+  const projectPicker = useRef<HTMLInputElement>(null);
   const [manage, setManage] = useState<Project | null>(null);
   const thumbs = mode === 'thumbs';
 
@@ -174,6 +196,15 @@ export function Home({ mode }: { mode: 'clips' | 'thumbs' }) {
     });
   }
 
+  function onProjectFile(file: File | undefined) {
+    if (!file) return;
+    void create('กำลังเปิดไฟล์โปรเจกต์…', async (id) => {
+      const { project, files } = await unpackProject(file, id, now());
+      for (const f of files) await storeMedia(id, f.name, f.blob);
+      return project;
+    });
+  }
+
   const shown = projects?.filter((p) => !!p.still === thumbs);
 
   return (
@@ -207,6 +238,11 @@ export function Home({ mode }: { mode: 'clips' | 'thumbs' }) {
               <ScanSearch size={20} aria-hidden /> ทำตามรูปต้นแบบ
             </Button>
           )}
+          {!busy && (
+            <Button variant="ghost" onClick={() => projectPicker.current?.click()}>
+              <FileUp size={20} aria-hidden /> นำเข้าไฟล์โปรเจกต์
+            </Button>
+          )}
           {thumbs && <p className="text-xs text-muted">“ทำตามรูปต้นแบบ”: เลือกปกที่ชอบ แอปจะดูว่าคนกับข้อความอยู่ตรงไหน สีอะไร แล้ววางช่องให้ใส่รูปและข้อความของคุณ</p>}
         </div>
         <input
@@ -221,6 +257,10 @@ export function Home({ mode }: { mode: 'clips' | 'thumbs' }) {
             e.target.value = '';
           }}
         />
+        <input ref={projectPicker} type="file" accept={`${PROJECT_EXT},application/octet-stream`} hidden aria-label="เลือกไฟล์โปรเจกต์" onChange={(e) => {
+          onProjectFile(e.target.files?.[0]);
+          e.target.value = '';
+        }} />
         <input ref={referencePicker} type="file" accept="image/*" hidden aria-label="เลือกรูปต้นแบบ" onChange={(e) => {
           onReference(e.target.files?.[0]);
           e.target.value = '';
