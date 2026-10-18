@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ArrowLeft, AudioLines, Captions, Crop, Diamond, Drum, Gauge, Gem, Mic, Ratio, Rewind, Snowflake, ImagePlus, Layers, Move, Music, Palette, Pause, Play, Redo2, Replace, Scissors, SlidersHorizontal, Sparkles, SunMedium, Trash2, Type, Undo2, Upload, UserRound, Volume2, WandSparkles, Zap, Crosshair, ScanFace, ScanSearch, Smile, ArrowUp, ArrowDown, Pipette, Shapes } from 'lucide-react';
+import { ArrowLeft, AudioLines, Captions, Crop, Diamond, Drum, Gauge, Gem, Mic, Ratio, Rewind, Snowflake, ImagePlus, Layers, Move, Music, Palette, Pause, Play, Redo2, Replace, Scissors, SlidersHorizontal, Sparkles, SunMedium, Trash2, Type, Undo2, Upload, UserRound, Volume2, WandSparkles, Zap, Crosshair, ScanFace, ScanSearch, Smile, ArrowUp, ArrowDown, Pipette, Shapes, Copy, CopyPlus, ClipboardPaste } from 'lucide-react';
 import { BottomSheet, BottomToolbar, Button, Slider, Swatches, ToolButton, TopBar } from '../ui';
 import { edit, openProject, redo, undo, useEditor } from '../store';
 import { importMedia, openMedia, storeMedia } from '../media';
@@ -17,6 +17,12 @@ import {
   findClip,
   formatTime,
   moveClip,
+  copyOf,
+  duplicateClip,
+  isLocked,
+  pasteClip,
+  setTrackLock,
+  type Copied,
   projectDuration,
   replaceClip,
   insertFreeze,
@@ -93,10 +99,13 @@ function Message({ children }: { children: ReactNode }) {
   );
 }
 
+// Shared by every project in this session, so a clip can be pasted after switching drafts (same project's files only).
+let clipboard: Copied | null = null;
+
 function selected(p: Project | null, id: string | null) {
   if (!p || !id) return null;
   try {
-    return findClip(p, id);
+    return isLocked(p, id) ? null : findClip(p, id); // a locked track's clips cannot be picked
   } catch {
     return null; // deleted, or gone after an undo
   }
@@ -109,6 +118,7 @@ export function Editor({ id }: { id: string }) {
   const [playing, setPlaying] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheet, setSheet] = useState<Sheet>(null);
+  const [hasClip, setHasClip] = useState(!!clipboard);
   const [still, setStill] = useState<Still | null>(null);
   const [colourTab, setColourTab] = useState<ColourTab>('filter');
   const [pendingPlay, setPendingPlay] = useState<Slot | null>(null);
@@ -135,6 +145,20 @@ export function Editor({ id }: { id: string }) {
   const p = project?.id === id ? project : null;
   const thumb = !!p?.still; // a thumbnail: one picture, no time
   const sel = selected(p, selectedId);
+  // Ctrl/Cmd + C, V, D on a keyboard: copy, paste, duplicate (not while typing).
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || (e.target as HTMLElement | null)?.closest('input, textarea, [contenteditable]')) return;
+      const key = e.key.toLowerCase();
+      if (key === 'c' && sel) copy(sel.id);
+      else if (key === 'v' && clipboard) paste();
+      else if (key === 'd' && sel) duplicate(sel.id);
+      else return;
+      e.preventDefault();
+    };
+    addEventListener('keydown', k);
+    return () => removeEventListener('keydown', k);
+  });
   const visual = sel && (sel.kind === 'video' || sel.kind === 'photo') ? sel : null;
   const textSel = sel?.kind === 'text' ? sel : null;
   const overlaySel = visual && p && !p.tracks[0].clips.some((c) => c.id === visual.id) ? visual : null;
@@ -290,6 +314,34 @@ export function Editor({ id }: { id: string }) {
     }
   }
 
+  function duplicate(clipId: string) {
+    let id = '';
+    edit((d) => {
+      id = duplicateClip(d, clipId);
+    });
+    if (id) setSelectedId(id);
+  }
+  function copy(clipId: string) {
+    if (!p) return;
+    clipboard = copyOf(p, clipId);
+    setHasClip(true);
+    setNotice('คัดลอกคลิปแล้ว กด “วาง” เพื่อวางที่เส้นเวลา');
+  }
+  function paste() {
+    if (!p || !clipboard) return;
+    const c = clipboard;
+    let id = '';
+    try {
+      edit((d) => {
+        id = pasteClip(d, c, time);
+      });
+      setSelectedId(id);
+      setNotice('');
+    } catch (e) {
+      setNotice(e instanceof Error && /another project/.test(e.message) ? 'คลิปที่คัดลอกมาจากโปรเจกต์อื่น วางได้เฉพาะในโปรเจกต์เดิม' : e instanceof Error && /locked/.test(e.message) ? 'แทร็กหลักถูกล็อกอยู่ ปลดล็อกก่อนแล้ววางอีกครั้ง' : 'วางไม่สำเร็จ');
+    }
+  }
+
   function split() {
     if (!sel) return;
     let right: string | null = null;
@@ -339,6 +391,7 @@ export function Editor({ id }: { id: string }) {
       const r = (-b.rot * Math.PI) / 180;
       const dx = x - b.cx;
       const dy = y - b.cy;
+      if (p && isLocked(p, b.id)) continue;
       if (Math.abs(dx * Math.cos(r) - dy * Math.sin(r)) <= b.w / 2 && Math.abs(dx * Math.sin(r) + dy * Math.cos(r)) <= b.h / 2) return b.id;
     }
     return null;
@@ -726,6 +779,10 @@ export function Editor({ id }: { id: string }) {
             setTransitionFrom(fromClipId);
             setSheet('transition');
           }}
+          onLock={(trackId, on) => {
+            edit((d) => setTrackLock(d, trackId, on));
+            if (on && sel && p.tracks.find((t) => t.id === trackId)?.clips.some((c) => c.id === sel.id)) setSelectedId(null);
+          }}
         />
       )}
 
@@ -743,6 +800,7 @@ export function Editor({ id }: { id: string }) {
         {!sel && !thumb && (
           <>
             <ToolButton icon={ImagePlus} label="เพิ่มคลิป" disabled={!p || busy} onClick={() => visualInput.current?.click()} />
+            {hasClip && <ToolButton icon={ClipboardPaste} label="วาง" disabled={!p || busy} onClick={paste} />}
             <ToolButton icon={Music} label="เพิ่มเสียง" disabled={!p || busy} onClick={() => audioInput.current?.click()} />
             <ToolButton icon={Mic} label="พากย์เสียง" disabled={!p || busy} active={sheet === 'voiceover'} onClick={() => setSheet('voiceover')} />
             <ToolButton icon={Type} label="ข้อความ" disabled={!p || busy} onClick={() => newText(Math.min(time, Math.max(0, total - SEC)))} />
@@ -785,6 +843,9 @@ export function Editor({ id }: { id: string }) {
             {visual && <ToolButton icon={Gem} label="คุณภาพ" active={sheet === 'quality'} onClick={() => setSheet('quality')} />}
             {visual && <ToolButton icon={SunMedium} label="ปรับแก้" active={sheet === 'colour' && colourTab === 'adjust'} onClick={() => openColour('adjust')} />}
             {!thumb && (sel.kind === 'video' || sel.kind === 'audio') && <ToolButton icon={Volume2} label="เสียง" active={sheet === 'sound'} onClick={() => setSheet('sound')} />}
+            <ToolButton icon={CopyPlus} label="ทำสำเนา" onClick={() => duplicate(sel.id)} />
+            <ToolButton icon={Copy} label="คัดลอก" onClick={() => copy(sel.id)} />
+            {hasClip && <ToolButton icon={ClipboardPaste} label="วาง" onClick={paste} />}
             <ToolButton icon={Trash2} label="ลบ" disabled={onlyMain} onClick={() => remove(sel.id)} />
           </>
         )}

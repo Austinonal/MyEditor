@@ -49,6 +49,7 @@ export interface Track {
   kind: 'main' | 'overlay' | 'audio' | 'text' | 'effect'; // overlay: pictures and videos on top of the main track (picture in picture); effect: applies to everything below it
   muted: boolean;
   hidden: boolean;
+  locked?: boolean; // its clips cannot be picked or changed until unlocked
   clips: Clip[]; // sorted by start, never overlapping
 }
 

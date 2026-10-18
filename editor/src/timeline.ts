@@ -987,3 +987,46 @@ export function addTextFromTemplate(p: Project, at: Us, t: TextTemplate) {
   applyTextTemplate(p, id, t, false);
   return id;
 }
+
+// ---- copy, paste, duplicate; locked tracks ----
+
+export const isLocked = (p: Project, clipId: string) => !!p.tracks.find((t) => t.clips.some((c) => c.id === clipId))?.locked;
+
+export function setTrackLock(p: Project, trackId: string, on: boolean) {
+  const t = p.tracks.find((x) => x.id === trackId);
+  if (!t) throw new Error(`no track ${trackId}`);
+  t.locked = on;
+}
+
+// What a copy is: the clip, and whether it came off the main track (that decides where a paste goes).
+export interface Copied {
+  clip: Clip;
+  main: boolean;
+}
+export const copyOf = (p: Project, clipId: string): Copied => ({ clip: structuredClone(findClip(p, clipId)), main: p.tracks[0].clips.some((c) => c.id === clipId) });
+
+// Puts a copy at timeline time `at`: a main-track picture or video goes in after the clip playing at `at`; anything
+// else starts at `at` on a free track of its kind. Keeps every setting, gets a new id. Returns the new id.
+export function pasteClip(p: Project, { clip, main }: Copied, at: Us) {
+  if (clip.kind !== 'text' && clip.kind !== 'effect' && !p.assets[clip.assetId]) throw new Error('the copied clip uses a file from another project');
+  const c = structuredClone(clip);
+  c.id = crypto.randomUUID();
+  if (main && (c.kind === 'video' || c.kind === 'photo')) {
+    const track = p.tracks[0];
+    if (track.locked) throw new Error('the main track is locked');
+    const i = track.clips.findIndex((x) => at >= x.start && at < x.start + x.duration);
+    track.clips.splice(i < 0 ? track.clips.length : i + 1, 0, c);
+    normalize(p);
+  } else {
+    c.start = Math.max(0, Math.round(at));
+    place(p, c);
+  }
+  return c.id;
+}
+
+// A copy right after the clip: next in line on the main track, right after it in time elsewhere.
+export function duplicateClip(p: Project, clipId: string) {
+  if (isLocked(p, clipId)) throw new Error('this clip is on a locked track');
+  const c = findClip(p, clipId);
+  return pasteClip(p, copyOf(p, clipId), c.start + c.duration - 1);
+}

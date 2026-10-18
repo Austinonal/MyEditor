@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
-import { ArrowLeftRight, Film, Image, Layers, Music, Plus, Type, Zap, ZoomIn, ZoomOut } from 'lucide-react';
+import { ArrowLeftRight, Film, Image, Layers, Lock, LockOpen, Music, Plus, Type, Zap, ZoomIn, ZoomOut } from 'lucide-react';
 import { SEC, formatTime, projectDuration, snap, snapPoints, sourceOut } from '../timeline.ts';
 import { PEAK_RATE, THUMB_H, peaksOf, stripOf } from '../thumbs';
 import { sourceAt } from '../timing.ts';
@@ -106,6 +106,7 @@ export function Timeline({
   onTrim,
   onScrub,
   onTransition,
+  onLock,
 }: {
   project: Project;
   time: Us;
@@ -116,6 +117,7 @@ export function Timeline({
   onDelete: (id: string) => void;
   onTrim: (from: Clip, edge: Edge, dt: Us) => void; // dt is measured from where the drag began
   onScrub: () => void; // a finger or wheel on the timeline: stop playback so it does not fight the scroll
+  onLock: (trackId: string, on: boolean) => void;
   onTransition: (fromClipId: string) => void;
 }) {
   const [pps, setPps] = useState(48); // pixels per second
@@ -293,6 +295,15 @@ export function Timeline({
           {guide !== null && <div aria-hidden className="pointer-events-none absolute inset-y-0 z-30 w-px bg-accent" style={{ left: (guide / SEC) * pps }} />}
           {project.tracks.map((track) => (
             <div key={track.id} className={`relative mt-1 ${track.kind === 'main' ? 'h-14' : 'h-10'}`} onClick={(e) => e.target === e.currentTarget && onSelect(null)}>
+              <button
+                aria-label={track.locked ? 'ปลดล็อกแทร็กนี้' : 'ล็อกแทร็กนี้'}
+                aria-pressed={!!track.locked}
+                onClick={() => onLock(track.id, !track.locked)}
+                className={`sticky left-1 z-30 grid size-8 place-items-center rounded-md ${track.locked ? 'bg-accent text-on-accent' : 'bg-surface/80 text-muted'} focus-visible:outline-2 focus-visible:outline-accent`}
+                style={{ marginLeft: '-50vw', top: track.kind === 'main' ? 12 : 4 }}
+              >
+                {track.locked ? <Lock size={14} aria-hidden /> : <LockOpen size={14} aria-hidden />}
+              </button>
               {track.clips.map((c, i) => {
                 const empty = c.kind !== 'text' && c.kind !== 'effect' && !!project.assets[c.assetId]?.placeholder;
                 const k = KIND[empty ? 'empty' : track.kind === 'overlay' ? 'overlay' : c.kind];
@@ -306,6 +317,7 @@ export function Timeline({
                 return [
                   <button
                     key={c.id}
+                    disabled={!!track.locked}
                     aria-pressed={selected}
                     aria-label={`${k.label} ${track.kind === 'main' ? i + 1 : ''} ${name} ${formatTime(c.duration, true)}`}
                     onPointerDown={(e) => down(e, c)}
@@ -316,7 +328,7 @@ export function Timeline({
                     onKeyDown={(e) => key(e, c)}
                     className={`absolute top-0 flex h-full items-center gap-1 overflow-hidden rounded-sm border-2 px-1 text-left text-xs ${k.cls} ${
                       selected ? 'z-10 border-playhead' : 'border-transparent'
-                    } ${empty && !selected ? 'border-dashed border-muted' : ''} ${dragging ? 'z-20 opacity-80 shadow-pop' : ''} focus-visible:outline-2 focus-visible:outline-accent`}
+                    } ${empty && !selected ? 'border-dashed border-muted' : ''} ${dragging ? 'z-20 opacity-80 shadow-pop' : ''} ${track.locked ? 'opacity-50' : ''} focus-visible:outline-2 focus-visible:outline-accent`}
                     style={{ left, width, touchAction: selected ? 'none' : 'pan-x pan-y' }}
                   >
                     {asset && c.kind !== 'audio' && <Filmstrip asset={asset} clip={c as MediaClip} pps={pps} h={track.kind === 'main' ? 52 : 36} />}
