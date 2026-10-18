@@ -3,6 +3,7 @@
 
 import type { Chroma } from './chroma.ts';
 import type { Mask } from './mask.ts';
+import type { Bubble, Gradient } from './bubbles.ts';
 
 export const SCHEMA_VERSION = 1;
 
@@ -147,6 +148,8 @@ export interface TextStyle {
   stroke: { colour: string; width: number } | null;
   shadow: { colour: string; blur: number; dx: number; dy: number } | null;
   background: { colour: string; radius: number } | null;
+  bubble?: Bubble | null; // a speech bubble or caption shape behind the text, instead of the plain background
+  gradient?: Gradient | null; // letters filled with a colour gradient instead of `colour`
 }
 
 export interface AudioClip extends ClipBase {

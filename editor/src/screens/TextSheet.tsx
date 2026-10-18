@@ -4,6 +4,7 @@ import { BottomSheet, Button, CategoryTabs, PresetTile, Slider, Swatches, Switch
 import { edit } from '../store';
 import { FONTS, family, importFont, listCustomFonts, type CustomFont } from '../fonts';
 import { TEXT_TEMPLATES } from '../textTemplates.ts';
+import { BUBBLES, GRADIENTS, bubbleOutline } from '../bubbles.ts';
 import { SEC, applyTextTemplate, setBehind, updateText } from '../timeline.ts';
 import type { TextClip, TextStyle } from '../schema';
 
@@ -26,7 +27,7 @@ const LOOKS: [string, Look][] = [
   ['ตัวดำขอบขาว', { colour: '#111111ff', stroke: { colour: '#ffffffff', width: 8 }, shadow: null, background: null }],
 ];
 
-const TABS = ['เทมเพลต', 'สไตล์', 'แบบอักษร', 'สี', 'ขอบ', 'เงา', 'พื้นหลัง', 'ตำแหน่ง'] as const;
+const TABS = ['เทมเพลต', 'สไตล์', 'แบบอักษร', 'สี', 'กรอบคำพูด', 'ขอบ', 'เงา', 'พื้นหลัง', 'ตำแหน่ง'] as const;
 type Tab = (typeof TABS)[number];
 
 const rgb = (c: string) => c.slice(0, 7);
@@ -51,6 +52,18 @@ const POSITIONS: [string, number][] = [
   ['กลาง', 0.5],
   ['ล่าง', 0.82],
 ];
+
+// A small drawing of each bubble shape for its tile.
+function BubbleIcon({ shape }: { shape: (typeof BUBBLES)[number][0] }) {
+  const o = bubbleOutline(shape, 30, 12);
+  const pts = o.main.map(([x, y]) => `${x + 15},${y + 14}`).join(' ');
+  return (
+    <svg viewBox="0 0 60 40" className="h-8 w-12" aria-hidden>
+      <polygon points={pts} className="fill-fg stroke-bg" strokeWidth={1.5} />
+      {o.dots.map((d, i) => <circle key={i} cx={d.x + 15} cy={d.y + 14} r={d.r} className="fill-fg" />)}
+    </svg>
+  );
+}
 
 export function TextSheet({ open, onClose, clip, shown, setTransform, onNext }: { open: boolean; onClose: () => void; clip: TextClip; shown: TextClip['transform']; setTransform: (patch: Partial<TextClip['transform']>, key: string) => void; onNext?: () => void }) {
   const [tab, setTab] = useState<Tab>('สไตล์');
@@ -189,8 +202,40 @@ export function TextSheet({ open, onClose, clip, shown, setTransform, onNext }: 
 
         {tab === 'สี' && (
           <>
-            <Swatches label="สีตัวอักษร" colours={COLOURS} value={rgb(s.colour)} onChange={(c) => style({ colour: withAlpha(c, alpha(s.colour)) }, 'colour')} />
+            <Swatches label="สีตัวอักษร" colours={COLOURS} value={rgb(s.colour)} onChange={(c) => style({ colour: withAlpha(c, alpha(s.colour)), gradient: null }, 'colour')} />
+            <div role="radiogroup" aria-label="ไล่สีตัวอักษร" className="grid grid-cols-4 gap-2">
+              <PresetTile label="สีเดียว" none selected={!s.gradient} onClick={() => style({ gradient: null }, 'gradient')} />
+              {GRADIENTS.map(([name, g]) => (
+                <PresetTile
+                  key={name}
+                  label={name}
+                  selected={JSON.stringify(s.gradient) === JSON.stringify(g)}
+                  thumb={<span className="text-xl font-bold" style={{ backgroundImage: `linear-gradient(${g.across ? '90deg' : '180deg'}, ${g.colours.join(', ')})`, WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>Aa ก</span>}
+                  onClick={() => style({ gradient: g }, 'gradient')}
+                />
+              ))}
+            </div>
             <Slider label="ความทึบ" value={Math.round(shown.opacity * 100)} min={0} max={100} step={5} format={(v) => `${v}%`} onChange={(v) => transform({ opacity: v / 100 }, 'opacity')} />
+          </>
+        )}
+
+        {tab === 'กรอบคำพูด' && (
+          <>
+            <div role="radiogroup" aria-label="กรอบคำพูด" className="grid grid-cols-4 gap-2">
+              <PresetTile label="ไม่มี" none selected={!s.bubble} onClick={() => style({ bubble: null }, 'bubble')} />
+              {BUBBLES.map(([shape, name]) => (
+                <PresetTile key={shape} label={name} selected={s.bubble?.shape === shape} thumb={<BubbleIcon shape={shape} />} onClick={() => style({ bubble: { fill: s.bubble?.fill ?? '#ffffffff', border: s.bubble?.border ?? '#111111ff', shape }, colour: s.bubble ? s.colour : '#111111ff', stroke: s.bubble ? s.stroke : null, background: null }, 'bubble')} />
+              ))}
+            </div>
+            {s.bubble && (
+              <>
+                <Swatches label="สีกรอบ" colours={COLOURS} value={rgb(s.bubble.fill)} onChange={(c) => style({ bubble: { ...s.bubble!, fill: withAlpha(c, 1) } }, 'bubble-fill')} />
+                <Swatches label="สีเส้นขอบกรอบ" colours={COLOURS} value={rgb(s.bubble.border ?? '#000000')} onChange={(c) => style({ bubble: { ...s.bubble!, border: withAlpha(c, 1) } }, 'bubble-border')} />
+                <Button variant="ghost" size="md" disabled={!s.bubble.border} onClick={() => style({ bubble: { ...s.bubble!, border: null } }, 'bubble-border-off')}>
+                  ไม่มีเส้นขอบ
+                </Button>
+              </>
+            )}
           </>
         )}
 

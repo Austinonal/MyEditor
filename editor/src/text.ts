@@ -1,5 +1,6 @@
 import { fontCss } from './fonts';
 import type { TextClip } from './schema';
+import { BUBBLE_PAD, bubbleOutline } from './bubbles.ts';
 
 // Per-letter pose for text presets like typewriter or wave. x / y are in ems.
 export interface GlyphPose {
@@ -74,13 +75,31 @@ export function textImage(c: TextClip, W: number, H: number, glyph?: { fn: Glyph
   const L = layout(c, unit, W * 0.9);
   const stroke = s.stroke ? s.stroke.width * unit : 0;
   const shadow = s.shadow ? (s.shadow.blur + Math.max(Math.abs(s.shadow.dx), Math.abs(s.shadow.dy))) * unit : 0;
-  const bgPad = s.background ? L.px * 0.35 : 0;
+  const bgPad = s.bubble ? L.lines.length * L.lineH * BUBBLE_PAD + L.px * 0.6 : s.background ? L.px * 0.35 : 0;
   const pad = Math.ceil(L.px * 0.6 + stroke + shadow + bgPad);
   const w = Math.ceil(L.width + pad * 2);
   const h = Math.ceil(L.lines.length * L.lineH + pad * 2);
   const canvas = new OffscreenCanvas(w, h);
   const ctx = canvas.getContext('2d')!;
-  if (s.background) {
+  if (s.bubble) {
+    const o = bubbleOutline(s.bubble.shape, L.width, L.lines.length * L.lineH);
+    ctx.save();
+    ctx.translate(pad, pad);
+    ctx.fillStyle = s.bubble.fill;
+    ctx.strokeStyle = s.bubble.border ?? 'transparent';
+    ctx.lineWidth = Math.max(2, L.px * 0.08);
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    o.main.forEach(([x, y], k) => (k ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+    ctx.closePath();
+    for (const d of o.dots) {
+      ctx.moveTo(d.x + d.r, d.y);
+      ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+    }
+    ctx.fill();
+    if (s.bubble.border) ctx.stroke();
+    ctx.restore();
+  } else if (s.background) {
     ctx.fillStyle = s.background.colour;
     ctx.beginPath();
     ctx.roundRect(pad - bgPad, pad - bgPad * 0.6, L.width + bgPad * 2, L.lines.length * L.lineH + bgPad * 1.2, s.background.radius * unit);
@@ -97,7 +116,7 @@ export function textImage(c: TextClip, W: number, H: number, glyph?: { fn: Glyph
       const gp: GlyphPose = glyph ? { ...REST_GLYPH, ...glyph.fn(glyph.p, i, L.count) } : REST_GLYPH;
       i++;
       if (gp.alpha <= 0.001) continue;
-      drawGlyph(ctx, g.g, x0 + g.x + g.w / 2, y, gp, L.px, c, unit);
+      drawGlyph(ctx, g.g, x0 + g.x + g.w / 2, y, gp, L.px, c, unit, x0 + g.x + g.w / 2 - pad, L.width);
     }
   });
   const out = { canvas, w, h };
@@ -108,7 +127,8 @@ export function textImage(c: TextClip, W: number, H: number, glyph?: { fn: Glyph
   return out;
 }
 
-function drawGlyph(ctx: Ctx, g: string, cx: number, cy: number, gp: GlyphPose, px: number, c: TextClip, unit: number) {
+// `bx` is the glyph's centre across the block and `bw` the block's width, for gradients that run across all the letters.
+function drawGlyph(ctx: Ctx, g: string, cx: number, cy: number, gp: GlyphPose, px: number, c: TextClip, unit: number, bx = 0, bw = 1) {
   const s = c.style;
   ctx.save();
   ctx.translate(cx + gp.x * px, cy + gp.y * px);
@@ -129,7 +149,11 @@ function drawGlyph(ctx: Ctx, g: string, cx: number, cy: number, gp: GlyphPose, p
     ctx.strokeText(g, 0, 0);
     ctx.shadowColor = 'transparent';
   }
-  ctx.fillStyle = s.colour;
+  if (s.gradient && s.gradient.colours.length > 1) {
+    const gr = s.gradient.across ? ctx.createLinearGradient(-bx, 0, bw - bx, 0) : ctx.createLinearGradient(0, -px * 0.45, 0, px * 0.45);
+    s.gradient.colours.forEach((col, k, all) => gr.addColorStop(k / (all.length - 1), col));
+    ctx.fillStyle = gr;
+  } else ctx.fillStyle = s.colour;
   ctx.fillText(g, 0, 0);
   ctx.restore();
 }

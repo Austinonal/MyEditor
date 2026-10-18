@@ -29,4 +29,8 @@ export const TEXT_TEMPLATES: TextTemplate[] = [
   { id: 'caption-pop', name: 'ซับเด้ง', text: 'ซับเด้งทีละตัว', style: { ...base, size: 72, colour: '#ffd84dff', stroke: { colour: '#000000ff', width: 8 } }, y: 0.78, animIn: 'in:t-pop' },
   { id: 'label', name: 'ป้ายชมพู', text: 'มาใหม่', style: { ...base, size: 68, background: { colour: '#ff4f8bff', radius: 30 } }, y: 0.2, animIn: 'in:t-drop', animLoop: undefined },
   { id: 'glitch', name: 'กลิตช์', text: 'GLITCH', style: { ...base, fontId: 'noto', size: 120, colour: '#00e5ffff', shadow: { colour: '#ff2d95ff', blur: 0, dx: 8, dy: 0 } }, y: 0.5, animLoop: 'combo:t-glitch-loop' },
+  { id: 'speech', name: 'กรอบคำพูด', text: 'สวัสดีจ้า!', style: { ...base, fontId: 'itim', size: 72, colour: '#111111ff', bubble: { shape: 'speech', fill: '#ffffffff', border: '#111111ff' } }, y: 0.3, animIn: 'in:t-pop' },
+  { id: 'shout', name: 'ตะโกน', text: 'ว้าว!!', style: { ...base, size: 96, colour: '#111111ff', bubble: { shape: 'shout', fill: '#ffd84dff', border: '#111111ff' } }, y: 0.3, animLoop: 'combo:t-shake' },
+  { id: 'thought', name: 'ความคิด', text: 'คิดอยู่นะ…', style: { ...base, fontId: 'itim', size: 64, colour: '#333333ff', bubble: { shape: 'thought', fill: '#ffffffee', border: null } }, y: 0.3, animIn: 'in:t-fade' },
+  { id: 'gold', name: 'ตัวทอง', text: 'สุดยอด', style: { ...base, size: 130, stroke: { colour: '#3b2a00ff', width: 10 }, gradient: { colours: ['#fff3b0', '#e6b422', '#a8770d'], across: false } }, y: 0.4, animIn: 'in:t-zoom' },
 ];
