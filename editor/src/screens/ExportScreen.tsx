@@ -2,13 +2,21 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { Button, CategoryTabs, ProgressPanel, TopBar } from '../ui';
 import { openProject, useEditor } from '../store';
-import { ExportError, exportProject, exportStill } from '../export';
+import { ExportError, GIF_MAX, exportProject, exportStill } from '../export';
 import { outputSize } from '../timeline.ts';
 import { canShare, saveExport, shareExport } from '../save';
 import type { ExportSettings, Fps } from '../schema';
 
 const BITRATE: Record<string, ExportSettings['bitrate']> = { ต่ำ: 'low', กลาง: 'medium', สูง: 'high' };
 const RES: Record<string, ExportSettings['height']> = { '720p': 720, '1080p': 1080, '2K': 1440, '4K': 2160 };
+type Format = NonNullable<ExportSettings['format']>;
+const FORMATS: Record<string, Format> = { MP4: 'mp4', WebM: 'webm', GIF: 'gif' };
+const MIME: Record<Format, string> = { mp4: 'video/mp4', webm: 'video/webm', gif: 'image/gif' };
+const FORMAT_HINT: Record<Format, string> = {
+  mp4: 'MP4: เปิดได้ทุกที่ เหมาะกับโซเชียลและแชต',
+  webm: 'WebM: สำหรับเว็บ ไฟล์เล็ก บางแอปบนมือถืออาจเปิดไม่ได้',
+  gif: `GIF: ภาพเคลื่อนไหวไม่มีเสียง เล่นวนซ้ำ ด้านสั้นไม่เกิน ${GIF_MAX.short}px ${GIF_MAX.fps} fps เหมาะกับคลิปสั้นไม่กี่วินาที`,
+};
 
 type Job =
   | { state: 'idle' }
@@ -29,6 +37,7 @@ export function ExportScreen({ id }: { id: string }) {
   const [height, setHeight] = useState<ExportSettings['height']>(project?.id === id && project.still ? 720 : 1080); // thumbnails: 1280 x 720
   const [fps, setFps] = useState<Fps | null>(null);
   const [png, setPng] = useState(false);
+  const [format, setFormat] = useState<Format>('mp4');
   const [bitrate, setBitrate] = useState<ExportSettings['bitrate']>('high');
   const [job, setJob] = useState<Job>({ state: 'idle' });
   const [saved, setSaved] = useState('');
@@ -55,7 +64,7 @@ export function ExportScreen({ id }: { id: string }) {
       if (p.still) return setJob({ state: 'done', file: await exportStill(p, height, png ? 'image/png' : 'image/jpeg') });
       const file = await exportProject(
         p,
-        { height, fps: fps ?? p.fps, bitrate, codec: 'avc' },
+        { height, fps: fps ?? p.fps, bitrate, codec: 'avc', format },
         (f) => {
           const pct = Math.floor(f * 100);
           if (pct !== shown) setJob({ state: 'running', progress: (shown = pct) / 100 });
@@ -81,7 +90,7 @@ export function ExportScreen({ id }: { id: string }) {
   }
 
   // One File per finished export, so the APK copies it to its cache once for both save and share.
-  const file = useMemo(() => (job.state !== 'done' ? null : p?.still ? job.file : new File([job.file], `${p?.name ?? 'video'}.mp4`, { type: 'video/mp4' })), [job, p?.name, p?.still]);
+  const file = useMemo(() => (job.state !== 'done' ? null : p?.still ? job.file : new File([job.file], `${p?.name ?? 'video'}.${format}`, { type: MIME[format] })), [job, p?.name, p?.still, format]);
   const picture = useMemo(() => (p?.still && file ? URL.createObjectURL(file) : null), [file, p?.still]);
   useEffect(() => () => void (picture && URL.revokeObjectURL(picture)), [picture]);
 
@@ -89,7 +98,8 @@ export function ExportScreen({ id }: { id: string }) {
     return <p className="p-8 text-center text-sm text-muted">ไม่พบโปรเจกต์นี้</p>;
   }
 
-  const [w, h] = p ? outputSize(p.aspect, height) : [0, 0];
+  const gif = !p?.still && format === 'gif';
+  const [w, h] = p ? outputSize(p.aspect, gif ? Math.min(height, GIF_MAX.short) : height) : [0, 0];
   const shareable = !!file && canShare(file);
   const busy = job.state === 'running';
 
@@ -106,7 +116,7 @@ export function ExportScreen({ id }: { id: string }) {
       <main className="flex flex-col gap-6 px-4 pb-[calc(2rem+var(--safe-bottom))]">
         <fieldset disabled={busy} className="flex flex-col gap-2">
           <legend className="text-sm">ความละเอียด</legend>
-          <CategoryTabs items={Object.keys(RES)} value={Object.keys(RES).find((k) => RES[k] === height)!} onChange={(v) => setHeight(RES[v])} />
+          {!gif && <CategoryTabs items={Object.keys(RES)} value={Object.keys(RES).find((k) => RES[k] === height)!} onChange={(v) => setHeight(RES[v])} />}
           <p className="font-mono text-xs text-muted">
             {w} × {h}
           </p>
@@ -118,7 +128,14 @@ export function ExportScreen({ id }: { id: string }) {
             <p className="text-xs text-muted">{png ? 'PNG: คมที่สุด ไฟล์ใหญ่กว่า' : 'JPEG: ไฟล์เล็ก เหมาะกับ YouTube (ไม่เกิน 2 MB)'}</p>
           </fieldset>
         )}
-        {!p?.still && <fieldset disabled={busy} className="flex flex-col gap-2">
+        {!p?.still && (
+          <fieldset disabled={busy} className="flex flex-col gap-2">
+            <legend className="text-sm">ไฟล์</legend>
+            <CategoryTabs items={Object.keys(FORMATS)} value={Object.keys(FORMATS).find((k) => FORMATS[k] === format)!} onChange={(v) => (setFormat(FORMATS[v]), setJob({ state: 'idle' }))} />
+            <p className="text-xs text-muted">{FORMAT_HINT[format]}</p>
+          </fieldset>
+        )}
+        {!p?.still && format !== 'gif' && <fieldset disabled={busy} className="flex flex-col gap-2">
           <legend className="text-sm">เฟรมเรต (fps)</legend>
           <CategoryTabs
             items={['24', '25', '30', '50', '60']}
@@ -126,7 +143,7 @@ export function ExportScreen({ id }: { id: string }) {
             onChange={(v) => setFps(Number(v) as Fps)}
           />
         </fieldset>}
-        {!p?.still && (
+        {!p?.still && format !== 'gif' && (
           <fieldset disabled={busy} className="flex flex-col gap-2">
             <legend className="text-sm">คุณภาพวิดีโอ (บิตเรต)</legend>
             <CategoryTabs items={Object.keys(BITRATE)} value={Object.keys(BITRATE).find((k) => BITRATE[k] === bitrate)!} onChange={(v) => setBitrate(BITRATE[v])} />

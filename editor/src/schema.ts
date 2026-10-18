@@ -195,4 +195,5 @@ export interface ExportSettings {
   fps: Fps;
   bitrate: 'low' | 'medium' | 'high';
   codec: 'avc' | 'hevc';
+  format?: 'mp4' | 'webm' | 'gif'; // mp4 when missing
 }

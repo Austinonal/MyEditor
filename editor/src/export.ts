@@ -5,6 +5,7 @@ import {
   CanvasSink,
   CanvasSource,
   Mp4OutputFormat,
+  WebMOutputFormat,
   Output,
   QUALITY_HIGH,
   QUALITY_MEDIUM,
@@ -26,6 +27,7 @@ import { loadFonts } from './fonts';
 import { prepareLuts } from './colour';
 import { needsPerson, preparePerson } from './segment';
 import { prepareCanvasImage } from './canvasbg';
+import { GIF_END, gifFrame, gifHeader } from './gif.ts';
 
 export class ExportError extends Error {
   constructor(readonly code: 'no-video-encoder') {
@@ -122,18 +124,20 @@ export async function exportStill(p: Project, height: number, type: 'image/jpeg'
   return new File([await canvas.convertToBlob({ type, quality: 0.92 })], `${p.name}.${type === 'image/png' ? 'png' : 'jpg'}`, { type });
 }
 
-// Renders every frame and writes the finished MP4 into the project's export file.
+// Renders every frame and writes the finished MP4 or WebM (or GIF) into the project's export file.
 export async function renderVideo(p: Project, s: ExportSettings, mixed: MixedAudio | null, onProgress: (fraction: number) => void, signal: AbortSignal) {
+  if (s.format === 'gif') return renderGif(p, s, onProgress, signal);
+  const webm = s.format === 'webm';
   const [width, height] = outputSize(p.aspect, s.height);
-  const prefer: VideoCodec[] = s.codec === 'hevc' ? ['hevc', 'avc', 'vp9', 'av1'] : ['avc', 'hevc', 'vp9', 'av1'];
+  const prefer: VideoCodec[] = webm ? ['vp9', 'av1', 'vp8'] : s.codec === 'hevc' ? ['hevc', 'avc', 'vp9', 'av1'] : ['avc', 'hevc', 'vp9', 'av1'];
   const videoCodec = await getFirstEncodableVideoCodec(prefer, { width, height, frameRate: s.fps, quality: quality[s.bitrate] });
   if (!videoCodec) throw new ExportError('no-video-encoder');
 
   const total = projectDuration(p);
-  const audioCodec = mixed ? await getFirstEncodableAudioCodec(['aac', 'opus'], { numberOfChannels: 2, sampleRate: mixed.sampleRate }) : null;
+  const audioCodec = mixed ? await getFirstEncodableAudioCodec(webm ? ['opus', 'vorbis'] : ['aac', 'opus'], { numberOfChannels: 2, sampleRate: mixed.sampleRate }) : null;
 
   const handle = await exportFile(p.id);
-  const output = new Output({ format: new Mp4OutputFormat(), target: new StreamTarget(await handle.createWritable()) });
+  const output = new Output({ format: webm ? new WebMOutputFormat() : new Mp4OutputFormat(), target: new StreamTarget(await handle.createWritable()) });
   const canvas = new OffscreenCanvas(width, height);
   const ctx = canvas.getContext('2d')!;
   const video = new CanvasSource(canvas, { codec: videoCodec, quality: quality[s.bitrate] });
@@ -171,6 +175,38 @@ export async function renderVideo(p: Project, s: ExportSettings, mixed: MixedAud
     await output.finalize();
   } catch (e) {
     if (output.state !== 'finalized') await output.cancel();
+    await deleteExport(p.id);
+    throw e;
+  }
+}
+
+// A GIF has no sound and gets big fast, so its short side is at most 320 px, at 12 frames a second.
+export const GIF_MAX = { short: 320, fps: 12 };
+
+async function renderGif(p: Project, s: ExportSettings, onProgress: (fraction: number) => void, signal: AbortSignal) {
+  const [width, height] = outputSize(p.aspect, Math.min(s.height, GIF_MAX.short));
+  const fps = Math.min(s.fps, GIF_MAX.fps);
+  const canvas = new OffscreenCanvas(width, height);
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+  const out = await (await exportFile(p.id)).createWritable();
+  try {
+    await Promise.all([loadFonts(), prepareLuts(p), preparePerson(p), prepareCanvasImage(p)]);
+    await out.write(gifHeader(width, height));
+    const frames = Math.max(1, Math.round((projectDuration(p) / SEC) * fps));
+    const frameTime = (i: number) => Math.round((i * SEC) / fps);
+    const feed = clipFeeder(p, width, height, frames, frameTime);
+    for (let n = 0; n < frames; ) {
+      signal.throwIfAborted();
+      renderFrame(ctx, width, height, p, frameTime(n), await feed.at(n));
+      const delay = Math.round(((n + 1) * 100) / fps) - Math.round((n * 100) / fps); // centiseconds, no drift
+      await out.write(gifFrame(ctx.getImageData(0, 0, width, height).data, width, height, delay));
+      onProgress(++n / frames);
+    }
+    feed.dispose();
+    await out.write(GIF_END);
+    await out.close();
+  } catch (e) {
+    await out.abort().catch(() => {});
     await deleteExport(p.id);
     throw e;
   }
