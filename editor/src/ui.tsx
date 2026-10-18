@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { Ban, Check, TriangleAlert, type LucideIcon } from 'lucide-react';
 
 const focus = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
@@ -302,5 +302,43 @@ export function DraftCard({
         <span>{updated}</span>
       </span>
     </button>
+  );
+}
+
+// Files dragged in from the computer onto the page. Returns whether files are over the page, to show DropHint.
+export function useFileDrop(onFiles: (files: File[]) => void) {
+  const [dragging, setDragging] = useState(false);
+  useEffect(() => {
+    const hasFiles = (e: DragEvent) => !!e.dataTransfer?.types.includes('Files');
+    const over = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault(); // without this the browser opens the file instead
+      setDragging(true);
+    };
+    const leave = (e: DragEvent) => !e.relatedTarget && setDragging(false);
+    const drop = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      setDragging(false);
+      onFiles([...e.dataTransfer!.files]);
+    };
+    addEventListener('dragover', over);
+    addEventListener('dragleave', leave);
+    addEventListener('drop', drop);
+    return () => {
+      removeEventListener('dragover', over);
+      removeEventListener('dragleave', leave);
+      removeEventListener('drop', drop);
+    };
+  });
+  return dragging;
+}
+
+export function DropHint({ show, text }: { show: boolean; text: string }) {
+  if (!show) return null;
+  return (
+    <div className="pointer-events-none fixed inset-0 z-50 grid place-items-center border-4 border-dashed border-accent bg-scrim/60 p-8 text-center text-lg font-semibold text-fg">
+      {text}
+    </div>
   );
 }

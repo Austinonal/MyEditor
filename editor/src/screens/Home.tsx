@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Copy, Download, Ellipsis, FileUp, Film, Image as ImageIcon, Pencil, Plus, ScanSearch, Trash2 } from 'lucide-react';
-import { BottomSheet, Button, DraftCard, TopBar } from '../ui';
+import { BottomSheet, Button, DraftCard, DropHint, TopBar, useFileDrop } from '../ui';
 import { createProject, deleteProject, duplicateProject, listProjects, renameProject } from '../store';
 import { coverOf } from '../thumbs';
 import { ImportError, deleteProjectMedia, importMedia, openMedia, storeMedia } from '../media';
@@ -205,10 +205,18 @@ export function Home({ mode }: { mode: 'clips' | 'thumbs' }) {
     });
   }
 
+  const dragging = useFileDrop((files) => {
+    if (busy) return;
+    const projectFile = files.find((f) => f.name.endsWith(PROJECT_EXT));
+    if (projectFile) onProjectFile(projectFile);
+    else onPick(files.filter((f) => (thumbs ? /^image\//.test(f.type) : /^(video|image)\//.test(f.type))));
+  });
+
   const shown = projects?.filter((p) => !!p.still === thumbs);
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-(--size-sheet-width) flex-col">
+      <DropHint show={dragging} text={thumbs ? 'ปล่อยรูปเพื่อทำปกใหม่ หรือไฟล์ .myedit เพื่อเปิดโปรเจกต์' : 'ปล่อยวิดีโอ/รูปเพื่อเริ่มโปรเจกต์ใหม่ หรือไฟล์ .myedit เพื่อเปิดโปรเจกต์'} />
       <TopBar title="โปรเจกต์ของฉัน" />
       <main className="flex flex-1 flex-col gap-6 px-4 pb-[calc(2rem+var(--safe-bottom))]">
         <nav aria-label="จะทำอะไร" className="grid grid-cols-2 gap-2">

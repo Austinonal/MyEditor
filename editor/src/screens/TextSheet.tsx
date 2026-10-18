@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { AlignCenter, AlignLeft, AlignRight, BookmarkPlus, Captions, X } from 'lucide-react';
 import { BottomSheet, Button, CategoryTabs, PresetTile, Slider, Swatches, Switch } from '../ui';
 import { edit } from '../store';
-import { FONTS, family, importFont, listCustomFonts, type CustomFont } from '../fonts';
+import { FONTS, family, importFont, importGoogleFont, listCustomFonts, type CustomFont } from '../fonts';
+import { GOOGLE_FONTS } from '../googleFonts.ts';
 import { TEXT_TEMPLATES, templateOf, type TextTemplate } from '../textTemplates.ts';
 import { listPresets, removePreset, savePreset } from '../myPresets.ts';
 import { BUBBLES, GRADIENTS, bubbleOutline } from '../bubbles.ts';
@@ -73,6 +74,23 @@ export function TextSheet({ open, onClose, clip, shown, setTransform, onNext }: 
   const [mine, setMine] = useState<TextTemplate[]>([]);
   const reloadMine = () => void listPresets().then(setMine, () => {});
   const fontInput = useRef<HTMLInputElement>(null);
+  const [googleGroup, setGoogleGroup] = useState(GOOGLE_FONTS[0][0]);
+  const [googleName, setGoogleName] = useState('');
+  const [downloading, setDownloading] = useState('');
+  function getGoogle(name: string) {
+    setFontError('');
+    setDownloading(name);
+    importGoogleFont(name)
+      .then(
+        (font) => {
+          setCustom((c) => [...c, font]);
+          setGoogleName('');
+          style({ fontId: font.id }, 'font');
+        },
+        (err: Error) => setFontError(err.message),
+      )
+      .finally(() => setDownloading(''));
+  }
   useEffect(() => {
     if (open) void listCustomFonts().then(setCustom, () => {});
     if (open) reloadMine();
@@ -228,7 +246,38 @@ export function TextSheet({ open, onClose, clip, shown, setTransform, onNext }: 
               }}
             />
             {fontError && <p role="alert" className="col-span-2 text-sm text-danger">{fontError}</p>}
-            <p className="col-span-2 text-xs text-muted">ฟอนต์ที่นำเข้าเก็บไว้ในเครื่องนี้ ใช้ได้ทั้งในตัวอย่างและตอนส่งออก · ใช้เฉพาะฟอนต์ที่คุณมีสิทธิ์ใช้</p>
+            <h3 className="col-span-2 mt-2 text-sm font-semibold">ดาวน์โหลดจาก Google Fonts</h3>
+            <div className="col-span-2">
+              <CategoryTabs items={GOOGLE_FONTS.map(([g]) => g)} value={googleGroup} onChange={setGoogleGroup} />
+            </div>
+            <div className="col-span-2 flex flex-wrap gap-2">
+              {(GOOGLE_FONTS.find(([g]) => g === googleGroup)?.[1] ?? [])
+                .filter((n) => !custom.some((c) => c.name === n))
+                .map((n) => (
+                  <button key={n} disabled={!!downloading} onClick={() => getGoogle(n)} className="h-9 rounded-pill bg-raised px-3 text-sm disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-accent">
+                    {downloading === n ? 'กำลังโหลด…' : n}
+                  </button>
+                ))}
+            </div>
+            <form
+              className="col-span-2 flex gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (googleName.trim()) getGoogle(googleName);
+              }}
+            >
+              <input
+                aria-label="ชื่อฟอนต์ใน Google Fonts"
+                placeholder="พิมพ์ชื่อฟอนต์อื่น เช่น Lobster"
+                value={googleName}
+                onChange={(e) => setGoogleName(e.target.value)}
+                className="h-10 min-w-0 flex-1 rounded-md border border-border-input bg-bg px-3 text-sm focus-visible:outline-2 focus-visible:outline-accent"
+              />
+              <Button size="md" type="submit" loading={!!downloading && downloading === googleName} disabled={!!downloading || !googleName.trim()}>
+                ดาวน์โหลด
+              </Button>
+            </form>
+            <p className="col-span-2 text-xs text-muted">ฟอนต์ที่นำเข้าหรือดาวน์โหลดเก็บไว้ในเครื่องนี้ (ใช้เน็ตแค่ตอนดาวน์โหลด) ใช้ได้ทั้งในตัวอย่างและตอนส่งออก · ใช้เฉพาะฟอนต์ที่คุณมีสิทธิ์ใช้</p>
           </div>
         )}
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ArrowLeft, AudioLines, Captions, Crop, Diamond, Drum, Gauge, Gem, Mic, Ratio, Rewind, Snowflake, ImagePlus, Layers, Move, Music, Palette, Pause, Play, Redo2, Replace, Scissors, SlidersHorizontal, Sparkles, SunMedium, Trash2, Type, Undo2, Upload, UserRound, Volume2, WandSparkles, Zap, Crosshair, ScanFace, ScanSearch, Smile, ArrowUp, ArrowDown, Pipette, Shapes, Copy, CopyPlus, ClipboardPaste } from 'lucide-react';
-import { BottomSheet, BottomToolbar, Button, Slider, Swatches, ToolButton, TopBar } from '../ui';
+import { BottomSheet, BottomToolbar, Button, Slider, Swatches, ToolButton, TopBar, DropHint, useFileDrop } from '../ui';
 import { edit, openProject, redo, undo, useEditor } from '../store';
 import { importMedia, openMedia, storeMedia } from '../media';
 import { buildReversed } from '../reverse';
@@ -158,6 +158,17 @@ export function Editor({ id }: { id: string }) {
     };
     addEventListener('keydown', k);
     return () => removeEventListener('keydown', k);
+  });
+  const dragging = useFileDrop((files) => {
+    if (!p || busy) return;
+    const pictures = files.filter((f) => /^(video|image)\//.test(f.type));
+    const sounds = p.still ? [] : files.filter((f) => f.type.startsWith('audio/'));
+    if (!pictures.length && !sounds.length) return setNotice(p.still ? 'ลากมาได้เฉพาะรูป' : 'ลากมาได้เฉพาะวิดีโอ รูป หรือเสียง');
+    void (async () => {
+      if (p.still) for (const f of pictures) await addOverlayFile(f);
+      else await addFiles(pictures, 'visual');
+      await addFiles(sounds, 'audio');
+    })();
   });
   const visual = sel && (sel.kind === 'video' || sel.kind === 'photo') ? sel : null;
   const textSel = sel?.kind === 'text' ? sel : null;
@@ -686,6 +697,7 @@ export function Editor({ id }: { id: string }) {
 
   return (
     <div className="flex h-dvh flex-col">
+      <DropHint show={dragging} text={p?.still ? 'ปล่อยรูปเพื่อวางเป็นภาพซ้อน' : 'ปล่อยไฟล์เพื่อเพิ่มต่อท้าย (วิดีโอ/รูป) หรือเป็นเพลง (เสียง)'} />
       <TopBar
         left={
           <Button variant="ghost" size="md" aria-label="กลับไปหน้าโปรเจกต์" onClick={() => (location.hash = thumb ? '#/thumbs' : '#/')}>
