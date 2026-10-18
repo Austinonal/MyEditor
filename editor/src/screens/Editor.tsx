@@ -60,7 +60,7 @@ import { TemplateSheet } from './TemplateSheet';
 import { TextSheet } from './TextSheet';
 import { CaptionSheet } from './CaptionSheet';
 import { QualitySheet } from './QualitySheet';
-import { ChromaSheet, MaskSheet } from './ExtraTools';
+import { ChromaSheet, DrawSheet, MaskSheet } from './ExtraTools';
 import { BeatSheet, CropSheet, CutoutSheet, EffectSheet, StickerSheet, SoundSheet, SpeedSheet, TransitionSheet, VoiceoverSheet } from './ClipTools';
 import { monoOf } from '../thumbs';
 import { speechRanges } from '../sound.ts';
@@ -72,7 +72,7 @@ import { ColourSheet, type ColourTab } from './ColourSheet';
 import { importMessage } from './Home';
 import type { AudioClip, Easing, MediaAsset, MediaClip, Project, TextClip, Transform } from '../schema';
 
-type Sheet = 'anim' | 'trim' | 'sound' | 'template' | 'text' | 'colour' | 'place' | 'captions' | 'quality' | 'canvas' | 'speed' | 'crop' | 'transition' | 'voiceover' | 'effect' | 'beat' | 'cutout' | 'chroma' | 'mask' | 'track' | 'sticker' | null;
+type Sheet = 'anim' | 'trim' | 'sound' | 'template' | 'text' | 'colour' | 'place' | 'captions' | 'quality' | 'canvas' | 'speed' | 'crop' | 'transition' | 'voiceover' | 'effect' | 'beat' | 'cutout' | 'chroma' | 'mask' | 'track' | 'sticker' | 'draw' | null;
 type Point = { x: number; y: number };
 const pinchOf = (a: Point, b: Point) => ({ d: Math.hypot(b.x - a.x, b.y - a.y), a: (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI });
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
@@ -1027,7 +1027,8 @@ export function Editor({ id }: { id: string }) {
           <p className="mt-1 text-xs text-muted">เริ่มจากตำแหน่งเส้นเวลาตอนนี้ไปจนจบคลิป · ได้ผลดีกับสิ่งที่มีลวดลายชัดๆ ตำแหน่งที่ได้เป็นคีย์เฟรม แก้ต่อได้</p>
         </BottomSheet>
       )}
-      {p && <StickerSheet open={sheet === 'sticker'} onClose={() => setSheet(null)} at={thumb ? 0 : Math.min(time, Math.max(0, total - SEC))} onAdded={setSelectedId} />}
+      {p && <StickerSheet open={sheet === 'sticker'} onClose={() => setSheet(null)} at={thumb ? 0 : Math.min(time, Math.max(0, total - SEC))} onAdded={setSelectedId} onDraw={() => setSheet('draw')} />}
+      {p && <DrawSheet open={sheet === 'draw'} onClose={() => setSheet('sticker')} onSave={(f) => (setSheet(null), void addOverlayFile(f))} />}
       {p && <EffectSheet open={sheet === 'effect'} onClose={() => setSheet(null)} project={p} clip={sel?.kind === 'effect' ? sel : null} time={time} onAdded={setSelectedId} />}
       {p && textSel && (
         <TextSheet

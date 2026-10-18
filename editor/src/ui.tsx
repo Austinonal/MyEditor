@@ -98,7 +98,7 @@ export function BottomSheet({
     <dialog
       ref={ref}
       aria-labelledby={titleId}
-      onClose={onClose}
+      onClose={() => open && onClose()} // a close we asked for (open already false) must not undo the next sheet
       onKeyDown={(e) => !modal && e.key === 'Escape' && onClose()}
       onClick={(e) => e.target === e.currentTarget && onClose()} // tap on the backdrop closes
       className={`mx-auto mt-auto mb-0 max-h-(--size-sheet-max) w-full max-w-(--size-sheet-width) flex-col rounded-t-lg bg-surface p-0 text-fg shadow-sheet open:flex ${

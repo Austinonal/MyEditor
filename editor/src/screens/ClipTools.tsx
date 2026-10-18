@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
-import { Circle, FlipHorizontal2, Mic, RotateCcw, RotateCw, Square } from 'lucide-react';
+import { Brush, Circle, FlipHorizontal2, Mic, RotateCcw, RotateCw, Square } from 'lucide-react';
 import { BottomSheet, Button, CategoryTabs, PresetTile, Slider, Switch } from '../ui';
 import { edit } from '../store';
 import { SPEED_PRESETS } from '../timing.ts';
@@ -8,6 +8,7 @@ import { VOICES } from '../voice';
 import { EFFECTS } from '../effects';
 import { SEC, SUBTITLE, addEffect, addText, extractAudio, formatTime, projectDuration, setBeats, setCrop, setCutout, setDenoise, setKeepPitch, updateText, setCurve, setEffect, setFades, setSpeed, setTransition, setVoice, setVolume, syncToBeats } from '../timeline.ts';
 import { findBeats } from '../sound.ts';
+import { STICKER_GROUPS } from '../paint.ts';
 import { monoOf } from '../thumbs';
 import { loadSegmenter } from '../segment';
 import type { AudioClip, EffectClip, MediaClip, Project, Us } from '../schema';
@@ -548,9 +549,9 @@ export function CutoutSheet({ open, onClose, clip, onPickImage }: { open: boolea
 
 // ---- stickers: big emoji and symbols, added as text layers so they move, turn, stack and export like text ----
 
-const STICKERS = ['😱', '🔥', '👉', '👈', '👇', '⬆️', '❗', '❓', '✅', '❌', '⭐', '💯', '😂', '😍', '🤯', '💰', '🎉', '❤️', '👍', '🆕', '🔴', '⚡', '🏆', '📌'];
 
-export function StickerSheet({ open, onClose, at, onAdded }: { open: boolean; onClose: () => void; at: Us; onAdded: (id: string) => void }) {
+export function StickerSheet({ open, onClose, at, onAdded, onDraw }: { open: boolean; onClose: () => void; at: Us; onAdded: (id: string) => void; onDraw: () => void }) {
+  const [group, setGroup] = useState(STICKER_GROUPS[0][0]);
   function add(emoji: string) {
     let id = '';
     edit((d) => {
@@ -561,12 +562,18 @@ export function StickerSheet({ open, onClose, at, onAdded }: { open: boolean; on
   }
   return (
     <BottomSheet open={open} title="สติกเกอร์" onClose={onClose} modal={false}>
+      <div className="flex flex-col gap-3">
+      <Button variant="secondary" onClick={onDraw}>
+        <Brush size={16} aria-hidden /> วาดสติกเกอร์เอง
+      </Button>
+      <CategoryTabs items={STICKER_GROUPS.map(([g]) => g)} value={group} onChange={setGroup} />
       <div className="grid grid-cols-6 gap-2">
-        {STICKERS.map((e) => (
+        {(STICKER_GROUPS.find(([g]) => g === group)?.[1] ?? []).map((e) => (
           <button key={e} aria-label={`สติกเกอร์ ${e}`} onClick={() => add(e)} className={`grid h-12 place-items-center rounded-md bg-raised text-2xl ${focus}`}>
             {e}
           </button>
         ))}
+      </div>
       </div>
     </BottomSheet>
   );
